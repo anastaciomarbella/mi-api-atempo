@@ -1,7 +1,7 @@
-const { createClient } = require('@supabase/supabase-js');
+// controllers/cita.controller.js
+const Database = require('../config/db');
+const db = Database.getInstance();
 const Cita = require('../models/cita.model');
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 const generarId = () => Math.floor(Math.random() * 1000000);
 
@@ -18,14 +18,14 @@ function convertirHoraAmPmA24h(horaAmPm) {
 
 // Obtener todas las citas
 exports.obtenerCitas = async (req, res) => {
-  const { data, error } = await supabase.from('citas').select('*');
+  const { data, error } = await db.from('citas').select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data.map(Cita));
 };
 
 // Obtener cita por ID
 exports.obtenerCitaPorId = async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('citas')
     .select('*')
     .eq('id_cita', req.params.id)
@@ -37,7 +37,7 @@ exports.obtenerCitaPorId = async (req, res) => {
 
 // Obtener citas por persona
 exports.obtenerCitaPorIdPersona = async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('citas')
     .select('*')
     .eq('id_persona', req.params.id_persona);
@@ -52,10 +52,10 @@ exports.crearCita = async (req, res) => {
     id_cita: generarId(),
     ...req.body,
     hora_inicio: convertirHoraAmPmA24h(req.body.hora_inicio),
-    hora_final: convertirHoraAmPmA24h(req.body.hora_final)
+    hora_final: convertirHoraAmPmA24h(req.body.hora_final),
   };
 
-  const { data, error } = await supabase.from('citas').insert([cita]);
+  const { data, error } = await db.from('citas').insert([cita]);
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json({ message: 'Cita creada', cita: data[0] });
 };
@@ -65,10 +65,10 @@ exports.actualizarCita = async (req, res) => {
   const cambios = {
     ...req.body,
     hora_inicio: convertirHoraAmPmA24h(req.body.hora_inicio),
-    hora_final: convertirHoraAmPmA24h(req.body.hora_final)
+    hora_final: convertirHoraAmPmA24h(req.body.hora_final),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('citas')
     .update(cambios)
     .eq('id_cita', req.params.id);
@@ -79,7 +79,7 @@ exports.actualizarCita = async (req, res) => {
 
 // Eliminar cita
 exports.eliminarCita = async (req, res) => {
-  const { error } = await supabase
+  const { error } = await db
     .from('citas')
     .delete()
     .eq('id_cita', req.params.id);
