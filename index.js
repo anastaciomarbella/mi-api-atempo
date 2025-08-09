@@ -34,7 +34,7 @@ app.use(helmet());
 const corsOptions = {
   origin: [
     'http://localhost:3000',
-    'https://atempo-react.onrender.com'
+    'https://mi-api-atempo.onrender.com/'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
