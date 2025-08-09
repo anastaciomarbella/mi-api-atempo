@@ -1,11 +1,7 @@
-require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
-
-// Cliente Supabase como admin para saltar RLS
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const Database = require('../config/db');
+const db = Database.getInstance(); // ✅ AQUÍ ESTÁ BIEN
+const citaQueries = require(`../sql/${process.env.DB_CLIENT}/cita.sql.js`);
+const avisoQueries = require(`../sql/${process.env.DB_CLIENT}/aviso.sql.js`);
 
 // 🔧 Utilidad para sumar tiempo
 function sumarTiempo(fecha, cantidad, unidad) {
@@ -21,25 +17,13 @@ async function generarAvisos() {
   try {
     const ahora = new Date();
 
-    // Traer citas en las próximas 24 horas
-    const desde = ahora.toISOString();
-    const hasta = new Date(ahora.getTime() + 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: citas, error } = await supabase
-      .from('citas') // 👈 cambia por tu tabla en Supabase
-      .select('*')
-      .gte('fecha_hora', desde)
-      .lte('fecha_hora', hasta);
-
-    if (error) {
-      console.error('❌ Error obteniendo citas:', error.message);
-      return;
-    }
+    const result = await db.query(citaQueries.SELECT_NEXT_24H);
+    const citas = result.rows || [];
 
     for (const cita of citas) {
-      const fechaCita = new Date(cita.fecha_hora);
-      const personaId = cita.id_persona;
-      const citaId = cita.id;
+      const fechaCita = new Date(cita.FECHA_HORA || cita.fecha_hora);
+      const personaId = cita.ID_PERSONA || cita.id_persona;
+      const citaId = cita.ID_CITA || cita.id_cita;
 
       // 🔔 1 día antes
       const unDiaAntes = sumarTiempo(fechaCita, -1, 'dias');
@@ -64,54 +48,46 @@ async function generarAvisos() {
 
 // ✅ Crear aviso si no existe
 async function crearAvisoSiNoExiste(personaId, citaId, mensajeBase) {
-  // Verificar si ya existe el aviso
-  const { data: avisosExistentes, error: avisoError } = await supabase
-    .from('avisos') // 👈 tu tabla de avisos en Supabase
-    .select('*')
-    .eq('id_persona', personaId)
-    .eq('id_cita', citaId)
-    .eq('mensaje', mensajeBase);
+  // 📌 Selección dinámica de query según motor de BD
+const avisoSelectQuery = process.env.DB_CLIENT === 'oracle' 
+    ? avisoQueries.SELECT_BY_PERSONA_CITA_MENSAJE_ORACLE
+    : avisoQueries.SELECT_BY_PERSONA_CITA_MENSAJE_POSTGRES;
 
-  if (avisoError) {
-    console.error('❌ Error consultando avisos:', avisoError.message);
-    return;
+  const avisosExistentes = await db.query(
+    avisoSelectQuery,
+    [personaId, citaId, mensajeBase]
+  );
+
+  const yaExiste = (avisosExistentes.rows && avisosExistentes.rows.length > 0)
+                || (avisosExistentes.rowCount && avisosExistentes.rowCount > 0);
+
+  if (!yaExiste) {
+    const idAviso = Math.floor(Math.random() * 1000000);
+
+    // 🔍 Consulta el teléfono de la persona según motor de BD
+    const telefonoQuery = process.env.DB_CLIENT === 'oracle'
+      ? `SELECT TELEFONO FROM PERSONAS WHERE ID_PERSONA = :1`
+      : `SELECT TELEFONO FROM PERSONAS WHERE ID_PERSONA = $1`;
+
+    const telefonoResult = await db.query(telefonoQuery, [personaId]);
+
+    const telefono =
+      telefonoResult.rows?.[0]?.TELEFONO || telefonoResult.rows?.[0]?.telefono ||
+      telefonoResult?.[0]?.TELEFONO || telefonoResult?.[0]?.telefono || 'N/A';
+
+    // 📩 Arma el mensaje final
+    const mensajeFinal = `${mensajeBase} | WhatsApp: ${telefono}`;
+
+    await db.query(avisoQueries.INSERT, [
+      idAviso,
+      personaId,
+      citaId,
+      mensajeFinal,
+      new Date()
+    ]);
+
+    console.log(`✅ Aviso creado para persona ${personaId}: "${mensajeFinal}"`);
   }
-
-  if (avisosExistentes && avisosExistentes.length > 0) {
-    return; // ya existe, no creamos de nuevo
-  }
-
-  // Buscar teléfono de la persona
-  const { data: persona, error: personaError } = await supabase
-    .from('personas') // 👈 tu tabla de personas en Supabase
-    .select('telefono')
-    .eq('id', personaId)
-    .single();
-
-  if (personaError) {
-    console.error('❌ Error obteniendo teléfono:', personaError.message);
-    return;
-  }
-
-  const telefono = persona?.telefono || 'N/A';
-  const mensajeFinal = `${mensajeBase} | WhatsApp: ${telefono}`;
-
-  // Insertar aviso nuevo
-  const { error: insertError } = await supabase
-    .from('avisos')
-    .insert([{
-      id_persona: personaId,
-      id_cita: citaId,
-      mensaje: mensajeFinal,
-      fecha: new Date().toISOString()
-    }]);
-
-  if (insertError) {
-    console.error('❌ Error insertando aviso:', insertError.message);
-    return;
-  }
-
-  console.log(`✅ Aviso creado para persona ${personaId}: "${mensajeFinal}"`);
 }
 
 module.exports = { generarAvisos };
