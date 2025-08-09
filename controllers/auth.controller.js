@@ -1,51 +1,46 @@
 // controllers/auth.controller.js
 
-const bcrypt = require('bcryptjs'); // Para cifrar contraseñas
-const Usuario = require('../models/usuario.model'); // Modelo de usuario
-const Database = require('../config/db'); // Singleton de conexión
-const db = Database.getInstance(); // Obtenemos la instancia del Singleton
-const queries = require(`../sql/${process.env.DB_CLIENT}/usuario.sql`); // Consultas SQL específicas
+const bcrypt = require('bcryptjs');
+const Usuario = require('../models/usuario.model');
+const Database = require('../config/db');
+const db = Database.getInstance();
+const queries = require(`../sql/${process.env.DB_CLIENT}/usuario.sql`);
 
-const generarId = () => Math.floor(Math.random() * 1000000); // Solo si no usas secuencias
+const generarId = () => Math.floor(Math.random() * 1000000); // Usar secuencias si tienes
 
-// ===========================================
-// REGISTRO DE USUARIO
-// ===========================================
+// Registro de usuario
 exports.registrar = async (req, res) => {
   try {
     const { nombre, correo, telefono, password } = req.body;
 
-    // Validación básica
     if (!nombre || !correo || !telefono || !password) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
-    // Verificar si el correo ya existe
+    // Verificar si el correo ya está registrado
     const resultado = await db.query(queries.SELECT_BY_CORREO, [correo]);
     const existe = (resultado.rows || resultado).length > 0;
     if (existe) {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
-    // Cifrar la contraseña con bcrypt
+    // Cifrar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generar ID (solo si no estás usando secuencia/trigger en Oracle/PostgreSQL)
+    // Generar ID (si no usas secuencias)
     const id = generarId();
 
-    // Insertar en la base de datos
+    // Insertar usuario
     await db.query(queries.INSERT, [id, nombre, correo, telefono, hashedPassword]);
 
     return res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (err) {
     console.error('Error en registro:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 
-// ===========================================
-// LOGIN DE USUARIO
-// ===========================================
+// Login de usuario
 exports.login = async (req, res) => {
   try {
     const { correo, password } = req.body;
@@ -68,14 +63,13 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Contraseña incorrecta' });
     }
 
+    // Mapeamos con el modelo y eliminamos la password antes de enviar
     const datosUsuario = Usuario(usuario);
-    if (datosUsuario && datosUsuario.password) {
-      delete datosUsuario.password;
-    }
+    if (datosUsuario?.password) delete datosUsuario.password;
 
     return res.json({ message: 'Login exitoso', usuario: datosUsuario });
   } catch (err) {
     console.error('Error en login:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
