@@ -1,7 +1,6 @@
 const Database = require('../config/db');
 const db = Database.getInstance();
-const { v4: uuidv4 } = require('uuid');
-// Asumo que Persona es un mapper, si no, solo envía datos tal cual
+// const { v4: uuidv4 } = require('uuid'); // Ya no lo necesitas si no generas UUID manualmente
 const Persona = require('../models/persona.model');
 
 // Obtener todas las personas
@@ -12,7 +11,6 @@ exports.obtenerPersonas = async (req, res) => {
       console.error('Error al obtener personas:', error);
       return res.status(500).json({ error: error.message });
     }
-    // Si Persona es función para mapear
     const personas = typeof Persona === 'function' ? data.map(Persona) : data;
     res.json(personas);
   } catch (err) {
@@ -41,7 +39,7 @@ exports.obtenerPersonaPorId = async (req, res) => {
   }
 };
 
-// Crear persona
+// Crear persona (sin enviar id_persona, que genera la BD)
 exports.crearPersona = async (req, res) => {
   try {
     console.log('📩 Datos recibidos en crearPersona:', req.body);
@@ -54,7 +52,6 @@ exports.crearPersona = async (req, res) => {
     }
 
     const nuevaPersona = {
-      id_persona: uuidv4(),
       nombre,
       email,
       telefono,
