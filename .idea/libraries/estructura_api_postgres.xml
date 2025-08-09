@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="estructura_api_postgres">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/Utilerias/estructura_api_postgres.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
