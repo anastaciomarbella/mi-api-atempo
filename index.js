@@ -33,8 +33,9 @@ app.use(helmet()); // Seguridad HTTP
 // CORS dinámico
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://atempo-react.onrender.com' // tu frontend en Render
+  'https://atempo-react.onrender.com'
 ];
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -44,7 +45,10 @@ app.use(
         callback(new Error('No permitido por CORS'));
       }
     },
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 200 // 👈 importante para navegadores viejos
   })
 );
 
@@ -86,3 +90,7 @@ const INTERVALO_MINUTOS = 30;
 setInterval(() => {
   generarAvisos();
 }, INTERVALO_MINUTOS * 60 * 1000);
+
+
+// 👌 Manejo de preflight OPTIONS para todas las rutas
+app.options('*', cors());
