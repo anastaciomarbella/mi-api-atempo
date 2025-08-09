@@ -5,7 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
 const debug = require('debug')('app:server');
-const { generarAvisos } = require('../utils/notificador');
+const { generarAvisos } = require('./utils/notificador');
 
 const app = express();
 
