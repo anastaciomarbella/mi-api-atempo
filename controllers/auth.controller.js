@@ -1,14 +1,11 @@
 // controllers/auth.controller.js
-
 const bcrypt = require('bcryptjs');
-const Usuario = require('../models/usuario.model');
-const Database = require('../config/db');
+const Database = require('../config/db'); // Singleton de conexión Supabase
 const db = Database.getInstance();
-const queries = require(`../sql/${process.env.DB_CLIENT}/usuario.sql`);
 
-const generarId = () => Math.floor(Math.random() * 1000000); // Usar secuencias si tienes
-
-// Registro de usuario
+// ===========================================
+// REGISTRO DE USUARIO
+// ===========================================
 exports.registrar = async (req, res) => {
   try {
     const { nombre, correo, telefono, password } = req.body;
@@ -17,30 +14,44 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
-    // Verificar si el correo ya está registrado
-    const resultado = await db.query(queries.SELECT_BY_CORREO, [correo]);
-    const existe = (resultado.rows || resultado).length > 0;
-    if (existe) {
+    // Verificar si correo ya está registrado
+    const { data: usuarios, error: errorSelect } = await db
+      .from('usuarios')
+      .select('*')
+      .eq('correo', correo);
+
+    if (errorSelect) {
+      console.error('Error al consultar usuario:', errorSelect);
+      return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+
+    if (usuarios.length > 0) {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
-    // Cifrar contraseña
+    // Hashear contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generar ID (si no usas secuencias)
-    const id = generarId();
+    // Insertar nuevo usuario
+    const { error: errorInsert } = await db.from('usuarios').insert([
+      { nombre, correo, telefono, password: hashedPassword }
+    ]);
 
-    // Insertar usuario
-    await db.query(queries.INSERT, [id, nombre, correo, telefono, hashedPassword]);
+    if (errorInsert) {
+      console.error('Error al insertar usuario:', errorInsert);
+      return res.status(500).json({ message: 'Error interno del servidor' });
+    }
 
     return res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (err) {
     console.error('Error en registro:', err);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
-// Login de usuario
+// ===========================================
+// LOGIN DE USUARIO
+// ===========================================
 exports.login = async (req, res) => {
   try {
     const { correo, password } = req.body;
@@ -49,27 +60,35 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Correo y contraseña son obligatorios' });
     }
 
-    const resultado = await db.query(queries.SELECT_BY_CORREO, [correo]);
-    const filas = resultado.rows || resultado;
+    // Buscar usuario por correo
+    const { data: usuarios, error: errorSelect } = await db
+      .from('usuarios')
+      .select('*')
+      .eq('correo', correo);
 
-    if (filas.length === 0) {
+    if (errorSelect) {
+      console.error('Error al consultar usuario:', errorSelect);
+      return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+
+    if (usuarios.length === 0) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    const usuario = filas[0];
+    const usuario = usuarios[0];
 
-    const passwordValida = await bcrypt.compare(password, usuario.PASSWORD || usuario.password);
+    // Comparar contraseña
+    const passwordValida = await bcrypt.compare(password, usuario.password);
     if (!passwordValida) {
       return res.status(401).json({ message: 'Contraseña incorrecta' });
     }
 
-    // Mapeamos con el modelo y eliminamos la password antes de enviar
-    const datosUsuario = Usuario(usuario);
-    if (datosUsuario?.password) delete datosUsuario.password;
+    // No enviar password en la respuesta
+    const { password: _, ...usuarioSinPassword } = usuario;
 
-    return res.json({ message: 'Login exitoso', usuario: datosUsuario });
+    return res.json({ message: 'Login exitoso', usuario: usuarioSinPassword });
   } catch (err) {
     console.error('Error en login:', err);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
