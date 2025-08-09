@@ -1,16 +1,22 @@
 const Database = require('../config/db');
 const db = Database.getInstance();
+const { v4: uuidv4 } = require('uuid');
+// Asumo que Persona es un mapper, si no, solo envía datos tal cual
 const Persona = require('../models/persona.model');
-
-const generarId = () => Math.floor(Math.random() * 1000000);
 
 // Obtener todas las personas
 exports.obtenerPersonas = async (req, res) => {
   try {
     const { data, error } = await db.from('personas').select('*');
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data.map(Persona));
+    if (error) {
+      console.error('Error al obtener personas:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    // Si Persona es función para mapear
+    const personas = typeof Persona === 'function' ? data.map(Persona) : data;
+    res.json(personas);
   } catch (err) {
+    console.error('Error catch obtenerPersonas:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -24,10 +30,13 @@ exports.obtenerPersonaPorId = async (req, res) => {
       .eq('id_persona', req.params.id)
       .single();
     if (error || !data) {
+      console.warn('Persona no encontrada para id:', req.params.id);
       return res.status(404).json({ message: 'Persona no encontrada' });
     }
-    res.json(Persona(data));
+    const persona = typeof Persona === 'function' ? Persona(data) : data;
+    res.json(persona);
   } catch (err) {
+    console.error('Error catch obtenerPersonaPorId:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -35,28 +44,33 @@ exports.obtenerPersonaPorId = async (req, res) => {
 // Crear persona
 exports.crearPersona = async (req, res) => {
   try {
+    console.log('📩 Datos recibidos en crearPersona:', req.body);
+
     const { nombre, email, telefono, foto } = req.body;
 
     if (!nombre || !email || !telefono) {
+      console.warn('Faltan campos requeridos:', req.body);
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
     const nuevaPersona = {
-      id_persona: generarId(),
+      id_persona: uuidv4(),
       nombre,
       email,
       telefono,
-      foto: foto || null
+      foto: foto || null,
     };
 
-    const { data, error } = await db.from('personas').insert([nuevaPersona]);
+    const { data, error } = await db.from('personas').insert([nuevaPersona]).select();
 
     if (error) {
+      console.error('Error al insertar persona:', error);
       return res.status(500).json({ error: error.message });
     }
 
     res.status(201).json(data[0]);
   } catch (err) {
+    console.error('Error catch crearPersona:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -64,14 +78,25 @@ exports.crearPersona = async (req, res) => {
 // Actualizar persona
 exports.actualizarPersona = async (req, res) => {
   try {
+    console.log('📩 Datos recibidos en actualizarPersona:', req.body);
+
     const { data, error } = await db
       .from('personas')
       .update(req.body)
-      .eq('id_persona', req.params.id);
+      .eq('id_persona', req.params.id)
+      .select();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      console.error('Error al actualizar persona:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    if (!data || data.length === 0) {
+      return res.status(404).json({ message: 'Persona no encontrada para actualizar' });
+    }
+
     res.json({ message: 'Persona actualizada', persona: data[0] });
   } catch (err) {
+    console.error('Error catch actualizarPersona:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -80,9 +105,15 @@ exports.actualizarPersona = async (req, res) => {
 exports.eliminarPersona = async (req, res) => {
   try {
     const { error } = await db.from('personas').delete().eq('id_persona', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
+
+    if (error) {
+      console.error('Error al eliminar persona:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
     res.json({ message: 'Persona eliminada' });
   } catch (err) {
+    console.error('Error catch eliminarPersona:', err);
     res.status(500).json({ error: err.message });
   }
 };
