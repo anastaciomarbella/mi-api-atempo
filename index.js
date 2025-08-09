@@ -28,9 +28,9 @@ const supabaseAdmin = createClient(
 
 // ✅ Middlewares globales
 app.use(express.json());
-app.use(helmet()); // Seguridad HTTP
+app.use(helmet());
 
-// CORS dinámico
+// ✅ CORS dinámico (ponerlo antes de rutas)
 const corsOptions = {
   origin: [
     'http://localhost:3000',
@@ -41,27 +41,22 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Middleware para agregar clientes Supabase a req
+// ✅ Middleware para agregar clientes Supabase a req
 app.use((req, res, next) => {
   req.supabase = supabase;
   req.supabaseAdmin = supabaseAdmin;
   next();
 });
 
-// ✅ Ejemplos de rutas
+// ✅ Rutas
 app.use('/api/personas', require('./routes/persona.routes'));
 app.use('/api/citas', require('./routes/cita.routes'));
 app.use('/api/avisos', require('./routes/aviso.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/frecuentes', require('./routes/clientes.routes'));
-
-// Ruta de prueba
-app.get('/api/citas', async (req, res) => {
-  const { data, error } = await req.supabase.from('citas').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
 
 // ✅ Middleware global de errores
 app.use((err, req, res, next) => {
@@ -81,6 +76,3 @@ setInterval(() => {
   generarAvisos();
 }, INTERVALO_MINUTOS * 60 * 1000);
 
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Preflight para todas las rutas
