@@ -3,6 +3,7 @@ require('dotenv').config(); // 1. Carga variables de entorno
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcrypt');
 
 const app = express();
 
@@ -39,7 +40,36 @@ app.get('/api/citas', async (req, res) => {
   res.json(data);
 });
 
-// 7. Iniciar servidor
+// 7. Ruta POST para registro de usuarios
+app.post('/api/auth/registro', async (req, res) => {
+  const { nombre, correo, telefono, password } = req.body;
+
+  if (!nombre || !correo || !telefono || !password) {
+    return res.status(400).json({ message: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    // Hashear la contraseña antes de guardar (seguridad)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insertar nuevo usuario en tabla "usuarios" (ajusta nombre tabla y columnas)
+    const { data, error } = await req.supabase
+      .from('usuarios')
+      .insert([{ nombre, correo, telefono, password: hashedPassword }]);
+
+    if (error) {
+      console.error('Error insertando usuario:', error.message);
+      return res.status(500).json({ message: 'Error al registrar usuario' });
+    }
+
+    return res.status(201).json({ message: 'Usuario registrado correctamente' });
+  } catch (err) {
+    console.error('Error inesperado:', err);
+    return res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// 8. Iniciar servidor
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
