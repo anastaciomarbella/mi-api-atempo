@@ -8,9 +8,9 @@ const db = Database.getInstance();
 // ===========================================
 exports.registrar = async (req, res) => {
   try {
-    const { nombre, correo, telefono, password, nombreEmpresa } = req.body;
+    const { nombre, correo, telefono, password, nombreEmpresa, foto } = req.body;
 
-    if (!nombre || !correo || !telefono || !password || !nombreEmpresa) {
+    if (!nombre || !correo || !telefono || !password || !nombreEmpresa || !foto) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
