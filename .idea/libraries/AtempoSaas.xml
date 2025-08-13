@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="AtempoSaas">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/Front_/AtempoSaas.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
