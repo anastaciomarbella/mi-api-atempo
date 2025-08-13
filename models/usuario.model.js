@@ -2,6 +2,7 @@
 function Usuario(row = {}) {
   return {
     id: row.ID_USUARIO || row.id_usuario || row.id || null,
+    negocio: row.ID_NEGOCIO || row.id_negocio || null,
     nombre: row.NOMBRE || row.nombre || '',
     correo: row.CORREO || row.correo || '',
     telefono: row.TELEFONO || row.telefono || '',

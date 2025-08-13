@@ -8,9 +8,9 @@ const db = Database.getInstance();
 // ===========================================
 exports.registrar = async (req, res) => {
   try {
-    const { nombre, correo, telefono, password } = req.body;
+    const { negocio, nombre, correo, telefono, password } = req.body;
 
-    if (!nombre || !correo || !telefono || !password) {
+    if (!negocio || !nombre || !correo || !telefono || !password) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
@@ -34,7 +34,7 @@ exports.registrar = async (req, res) => {
 
     // Insertar nuevo usuario
     const { error: errorInsert } = await db.from('usuarios').insert([
-      { nombre, correo, telefono, password: hashedPassword }
+      {  negocio, nombre, correo, telefono, password: hashedPassword }
     ]);
 
     if (errorInsert) {
