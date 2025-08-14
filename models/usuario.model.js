@@ -5,7 +5,8 @@ function Usuario(row = {}) {
     nombre: row.NOMBRE || row.nombre || '',
     correo: row.CORREO || row.correo || '',
     telefono: row.TELEFONO || row.telefono || '',
-    password: row.PASSWORD || row.password || '' // este se elimina después
+    password: row.PASSWORD || row.password || '',
+    nombreEmpresa: row.nombreEmpresa || row.nombreEmpresa || '',
   };
 }
 
