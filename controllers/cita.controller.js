@@ -44,7 +44,7 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
   const { data, error } = await db
     .from('citas')
     .select('*')
-    .eq('id_persona_uuid', req.params.id_persona); // usar columna UUID
+    .eq('id_persona_uuid', req.params.id_persona); // UUID correcto
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -55,7 +55,7 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const { id_persona_uuid, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
+    const { id_persona_uuid, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color, numero_cliente, motivo } = req.body;
 
     console.log('📥 Datos recibidos en req.body:', req.body);
 
@@ -64,17 +64,18 @@ exports.crearCita = async (req, res) => {
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
     }
 
-   const cita = {
-  id_cita: uuidv4(),
-  id_persona_uuid: id_persona_uuid, // usar el valor que viene en req.body
-  fecha,
-  hora_inicio: convertirHoraAmPmA24h(hora_inicio),
-  hora_final: convertirHoraAmPmA24h(hora_final),
-  nombre_cliente: nombre_cliente || null,
-  titulo: titulo || null,
-  color: color || null
-};
-
+    const cita = {
+      id_cita: uuidv4(),
+      id_persona_uuid, // UUID correcto
+      fecha,
+      hora_inicio: convertirHoraAmPmA24h(hora_inicio),
+      hora_final: convertirHoraAmPmA24h(hora_final),
+      nombre_cliente: nombre_cliente || null,
+      numero_cliente: numero_cliente || null,
+      motivo: motivo || null,
+      titulo: titulo || null,
+      color: color || null
+    };
 
     console.log('📝 Cita que se insertará en BD:', cita);
 
