@@ -78,26 +78,40 @@ exports.crearCita = async (req, res) => {
 };
 
 // =============================
-// Actualizar cita
+// Actualizar cita robusta
 exports.actualizarCita = async (req, res) => {
   try {
+    const idCita = req.params.id;
+    if (!idCita) return res.status(400).json({ error: 'ID de la cita no proporcionado' });
+
+    // Convertir horas solo si vienen
+    const horaInicio = req.body.hora_inicio ? convertirHoraAmPmA24h(req.body.hora_inicio) : req.body.hora_inicio;
+    const horaFinal = req.body.hora_fin ? convertirHoraAmPmA24h(req.body.hora_fin) : req.body.hora_fin;
+
     const cambios = {
       ...req.body,
-      hora_inicio: convertirHoraAmPmA24h(req.body.hora_inicio),
-      hora_final: convertirHoraAmPmA24h(req.body.hora_final),
+      hora_inicio: horaInicio,
+      hora_fin: horaFinal,
     };
 
     const { data, error } = await db
       .from('citas')
       .update(cambios)
-      .eq('id_cita', req.params.id)
-      .select(); // ✅ Devuelve la cita actualizada
+      .eq('id_cita', idCita)
+      .select();
 
-    if (error) return res.status(500).json({ error: error.message });
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+    if (error) {
+      console.error('Error al actualizar cita:', error.message);
+      return res.status(500).json({ error: 'Error al actualizar la cita en la base de datos' });
+    }
 
-    res.json({ message: 'Cita actualizada', cita: data[0] });
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: `Cita con id ${idCita} no encontrada` });
+    }
+
+    res.json({ message: 'Cita actualizada correctamente', cita: data[0] });
   } catch (err) {
+    console.error('Error interno en actualizarCita:', err);
     res.status(500).json({ error: 'Error interno en el servidor' });
   }
 };
