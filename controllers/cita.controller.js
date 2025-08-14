@@ -55,11 +55,11 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const { id_persona, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
+    const { id_persona_uuid, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
 
     console.log('📥 Datos recibidos en req.body:', req.body);
 
-    if (!id_persona || !fecha || !hora_inicio || !hora_final) {
+    if (!id_persona_uuid || !fecha || !hora_inicio || !hora_final) {
       console.warn('⚠️ Faltan datos obligatorios');
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
     }
