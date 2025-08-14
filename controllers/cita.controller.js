@@ -1,6 +1,7 @@
 // controllers/cita.controller.js
 const Database = require('../config/db');
 const db = Database.getInstance().getClient();
+const { v4: uuidv4 } = require('uuid'); // Necesita instalar: npm install uuid
 
 // Función para convertir hora AM/PM a 24h
 function convertirHoraAmPmA24h(horaAmPm) {
@@ -30,7 +31,7 @@ exports.obtenerCitaPorId = async (req, res) => {
     .from('citas')
     .select('*')
     .eq('id_cita', req.params.id);
-  
+
   if (error) return res.status(500).json({ error: error.message });
   if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
   res.json(data[0]);
@@ -44,7 +45,7 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
     .from('citas')
     .select('*')
     .eq('id_persona', req.params.id_persona);
-  
+
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
@@ -55,12 +56,16 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
 exports.crearCita = async (req, res) => {
   try {
     const { id_persona, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
+
+    console.log('📥 Datos recibidos en req.body:', req.body);
+
     if (!id_persona || !fecha || !hora_inicio || !hora_final) {
+      console.warn('⚠️ Faltan datos obligatorios');
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
     }
 
     const cita = {
-      id_cita: Math.floor(Math.random() * 1000000),
+      id_cita: uuidv4(), // Usar UUID para evitar duplicados
       id_persona,
       fecha,
       hora_inicio: convertirHoraAmPmA24h(hora_inicio),
@@ -70,11 +75,18 @@ exports.crearCita = async (req, res) => {
       color: color || null
     };
 
+    console.log('📝 Cita que se insertará en BD:', cita);
+
     const { data, error } = await db.from('citas').insert([cita]).select();
-    if (error) return res.status(500).json({ error: error.message });
+
+    if (error) {
+      console.error('❌ Error al insertar en BD:', error.message);
+      return res.status(500).json({ error: `Error al guardar la cita: ${error.message}` });
+    }
 
     res.status(201).json({ message: 'Cita creada', cita: data[0] });
   } catch (err) {
+    console.error('🔥 Error inesperado en crearCita:', err);
     res.status(500).json({ error: 'Error interno en el servidor' });
   }
 };
@@ -93,17 +105,24 @@ exports.actualizarCita = async (req, res) => {
     // Eliminar undefined para no sobreescribir campos
     Object.keys(cambios).forEach(key => cambios[key] === undefined && delete cambios[key]);
 
+    console.log('✏️ Actualizando cita con ID:', req.params.id, ' Cambios:', cambios);
+
     const { data, error } = await db
       .from('citas')
       .update(cambios)
       .eq('id_cita', req.params.id)
       .select();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      console.error('❌ Error al actualizar:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
     if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
 
     res.json({ message: 'Cita actualizada', cita: data[0] });
   } catch (err) {
+    console.error('🔥 Error inesperado en actualizarCita:', err);
     res.status(500).json({ error: 'Error interno en el servidor' });
   }
 };
@@ -112,7 +131,11 @@ exports.actualizarCita = async (req, res) => {
 // ELIMINAR CITA
 // =========================
 exports.eliminarCita = async (req, res) => {
+  console.log('🗑️ Eliminando cita con ID:', req.params.id);
   const { error } = await db.from('citas').delete().eq('id_cita', req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('❌ Error al eliminar:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
   res.json({ message: 'Cita eliminada' });
 };
