@@ -1,61 +1,76 @@
-// Función robusta: acepta "08:23 PM", "08:23 p. m.", "8:23 pm", "08:23"
+// controllers/cita.controller.js
+const Database = require('../config/db');
+const db = Database.getInstance().getClient();
+const { v4: uuidv4 } = require('uuid'); // Necesita instalar: npm install uuid
+
+// Función para convertir hora AM/PM a 24h
 function convertirHoraAmPmA24h(horaAmPm) {
   if (!horaAmPm) return null;
-
-  const s = String(horaAmPm).trim().toLowerCase();
-
-  // Ya en 24h: "08:23" o "8:23"
-  if (/^\d{1,2}:\d{2}$/.test(s)) {
-    const [h, m] = s.split(':');
-    return `${String(h).padStart(2,'0')}:${m}:00`;
-  }
-
-  // Normaliza "p. m." / "a. m." -> "pm" / "am"
-  const normalizada = s.replace(/\./g, '').replace(/\s+/g, ' ').trim(); // "08:23 p m" o "08:23 pm"
-  const [timePart, mer1 = '', mer2 = ''] = normalizada.split(' ');
-  const mer = (mer1 + mer2).replace(/[^a-z]/g, ''); // "pm", "am" o ""
-
-  let [hours, minutes] = timePart.split(':').map(n => parseInt(n, 10));
-
-  if (mer.includes('p') && hours < 12) hours += 12;
-  if (mer.includes('a') && hours === 12) hours = 0;
-
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+  const [time, modifier] = horaAmPm.trim().split(' ');
+  let [hours, minutes] = time.split(':');
+  hours = parseInt(hours, 10);
+  if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
+  if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, '0')}:${minutes}:00`;
 }
+
+// =========================
+// OBTENER CITAS
+// =========================
+exports.obtenerCitas = async (req, res) => {
+  const { data, error } = await db.from('citas').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+// =========================
+// OBTENER CITA POR ID
+// =========================
+exports.obtenerCitaPorId = async (req, res) => {
+  const { data, error } = await db
+    .from('citas')
+    .select('*')
+    .eq('id_cita', req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+  res.json(data[0]);
+};
+
+// =========================
+// OBTENER CITAS POR PERSONA
+// =========================
+exports.obtenerCitaPorIdPersona = async (req, res) => {
+  const { data, error } = await db
+    .from('citas')
+    .select('*')
+    .eq('id_persona', req.params.id_persona);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
 
 // =========================
 // CREAR CITA
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const {
-      id_persona_uuid, // debe ser UUID (columna uuid en BD)
-      fecha,
-      hora_inicio,
-      hora_final,
-      nombre_cliente,
-      titulo,
-      color,
-      numero_cliente,
-      motivo
-    } = req.body;
+    const { id_persona, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
 
     console.log('📥 Datos recibidos en req.body:', req.body);
 
-    if (!id_persona_uuid || !fecha || !hora_inicio || !hora_final) {
+    if (!id_persona || !fecha || !hora_inicio || !hora_final) {
       console.warn('⚠️ Faltan datos obligatorios');
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
     }
 
-    // ⚠️ NO ENVIAR id_cita: lo crea Postgres (serial)
     const cita = {
-      id_persona_uuid,
-      fecha, // asegúrate que llegue como 'YYYY-MM-DD'
+      id_cita: uuidv4(), // Usar UUID para evitar duplicados
+      id_persona,
+      fecha,
       hora_inicio: convertirHoraAmPmA24h(hora_inicio),
       hora_final: convertirHoraAmPmA24h(hora_final),
       nombre_cliente: nombre_cliente || null,
-      numero_cliente: numero_cliente || null,
-      motivo: motivo || null,
       titulo: titulo || null,
       color: color || null
     };
@@ -74,4 +89,53 @@ exports.crearCita = async (req, res) => {
     console.error('🔥 Error inesperado en crearCita:', err);
     res.status(500).json({ error: 'Error interno en el servidor' });
   }
+};
+
+// =========================
+// ACTUALIZAR CITA
+// =========================
+exports.actualizarCita = async (req, res) => {
+  try {
+    const cambios = {
+      ...req.body,
+      hora_inicio: req.body.hora_inicio ? convertirHoraAmPmA24h(req.body.hora_inicio) : undefined,
+      hora_final: req.body.hora_final ? convertirHoraAmPmA24h(req.body.hora_final) : undefined
+    };
+
+    // Eliminar undefined para no sobreescribir campos
+    Object.keys(cambios).forEach(key => cambios[key] === undefined && delete cambios[key]);
+
+    console.log('✏️ Actualizando cita con ID:', req.params.id, ' Cambios:', cambios);
+
+    const { data, error } = await db
+      .from('citas')
+      .update(cambios)
+      .eq('id_cita', req.params.id)
+      .select();
+
+    if (error) {
+      console.error('❌ Error al actualizar:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+
+    res.json({ message: 'Cita actualizada', cita: data[0] });
+  } catch (err) {
+    console.error('🔥 Error inesperado en actualizarCita:', err);
+    res.status(500).json({ error: 'Error interno en el servidor' });
+  }
+};
+
+// =========================
+// ELIMINAR CITA
+// =========================
+exports.eliminarCita = async (req, res) => {
+  console.log('🗑️ Eliminando cita con ID:', req.params.id);
+  const { error } = await db.from('citas').delete().eq('id_cita', req.params.id);
+  if (error) {
+    console.error('❌ Error al eliminar:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ message: 'Cita eliminada' });
 };
