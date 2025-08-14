@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
-const Database = require('../config/db'); // Singleton de Supabase
+const Database = require('../config/db'); // Singleton Supabase
 const db = Database.getInstance();
-const { v4: uuidv4 } = require('uuid'); // Para generar nombre único para la foto
+const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 // ===========================================
@@ -17,15 +17,16 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
-    // Si se envió una foto (archivo)
+    // Si se envió una foto
     if (req.file) {
       const fileExt = req.file.originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
 
-      // Subir a Supabase Storage
-      const { data, error: uploadError } = await db.storage
+      const { error: uploadError } = await db.storage
         .from('usuarios')
-        .upload(fileName, fs.readFileSync(req.file.path), { contentType: req.file.mimetype });
+        .upload(fileName, fs.readFileSync(req.file.path), {
+          contentType: req.file.mimetype
+        });
 
       if (uploadError) {
         console.error('Error al subir foto:', uploadError);
@@ -33,18 +34,14 @@ exports.registrar = async (req, res) => {
       }
 
       // Obtener URL pública
-      const { publicUrl, error: urlError } = db.storage.from('usuarios').getPublicUrl(fileName);
-      if (urlError) {
-        console.error('Error al obtener URL pública:', urlError);
-      } else {
-        fotoUrl = publicUrl;
-      }
+      const { data: publicData } = db.storage.from('usuarios').getPublicUrl(fileName);
+      fotoUrl = publicData.publicUrl;
 
-      // Opcional: eliminar archivo temporal
+      // Borrar archivo temporal
       fs.unlinkSync(req.file.path);
     }
 
-    // Verificar si correo ya existe
+    // Verificar si el correo ya está registrado
     const { data: usuarios, error: errorSelect } = await db
       .from('usuarios')
       .select('*')
@@ -64,7 +61,14 @@ exports.registrar = async (req, res) => {
 
     // Insertar usuario
     const { error: errorInsert } = await db.from('usuarios').insert([
-      { foto: fotoUrl, negocio, nombre, correo, telefono, password: hashedPassword }
+      {
+        foto: fotoUrl,
+        negocio,
+        nombre,
+        correo,
+        telefono,
+        password: hashedPassword
+      }
     ]);
 
     if (errorInsert) {
@@ -77,4 +81,11 @@ exports.registrar = async (req, res) => {
     console.error('Error en registro:', err);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
+};
+
+// ===========================================
+// LOGIN
+// ===========================================
+exports.login = async (req, res) => {
+  res.send('Login pendiente');
 };
