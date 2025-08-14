@@ -1,7 +1,7 @@
 function Cita(row) {
   return {
     id: row.id_cita || row.ID_CITA,
-    id_persona: row.id_persona || row.ID_PERSONA,
+    id_persona: Number(row.id_persona || row.ID_PERSONA), // <-- aquí
     titulo: row.titulo || row.TITULO,
     fecha: row.fecha || row.FECHA,
     hora_inicio: row.hora_inicio || row.HORA_INICIO,
