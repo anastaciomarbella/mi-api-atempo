@@ -1,6 +1,8 @@
+// controllers/cita.controller.js
 const Database = require('../config/db');
 const db = Database.getInstance().getClient();
 
+// Función para convertir hora AM/PM a 24h
 function convertirHoraAmPmA24h(horaAmPm) {
   if (!horaAmPm) return null;
   const [time, modifier] = horaAmPm.trim().split(' ');
@@ -11,14 +13,45 @@ function convertirHoraAmPmA24h(horaAmPm) {
   return `${String(hours).padStart(2, '0')}:${minutes}:00`;
 }
 
-// Obtener todas las citas
+// =========================
+// OBTENER CITAS
+// =========================
 exports.obtenerCitas = async (req, res) => {
   const { data, error } = await db.from('citas').select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
 
-// Crear cita
+// =========================
+// OBTENER CITA POR ID
+// =========================
+exports.obtenerCitaPorId = async (req, res) => {
+  const { data, error } = await db
+    .from('citas')
+    .select('*')
+    .eq('id_cita', req.params.id);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+  res.json(data[0]);
+};
+
+// =========================
+// OBTENER CITAS POR PERSONA
+// =========================
+exports.obtenerCitaPorIdPersona = async (req, res) => {
+  const { data, error } = await db
+    .from('citas')
+    .select('*')
+    .eq('id_persona', req.params.id_persona);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+// =========================
+// CREAR CITA
+// =========================
 exports.crearCita = async (req, res) => {
   try {
     const { id_persona, fecha, hora_inicio, hora_final, nombre_cliente, titulo, color } = req.body;
@@ -32,9 +65,9 @@ exports.crearCita = async (req, res) => {
       fecha,
       hora_inicio: convertirHoraAmPmA24h(hora_inicio),
       hora_final: convertirHoraAmPmA24h(hora_final),
-      nombre_cliente,
-      titulo,
-      color
+      nombre_cliente: nombre_cliente || null,
+      titulo: titulo || null,
+      color: color || null
     };
 
     const { data, error } = await db.from('citas').insert([cita]).select();
@@ -46,16 +79,22 @@ exports.crearCita = async (req, res) => {
   }
 };
 
-// Actualizar cita
+// =========================
+// ACTUALIZAR CITA
+// =========================
 exports.actualizarCita = async (req, res) => {
   try {
     const cambios = {
       ...req.body,
-      hora_inicio: convertirHoraAmPmA24h(req.body.hora_inicio),
-      hora_final: convertirHoraAmPmA24h(req.body.hora_final),
+      hora_inicio: req.body.hora_inicio ? convertirHoraAmPmA24h(req.body.hora_inicio) : undefined,
+      hora_final: req.body.hora_final ? convertirHoraAmPmA24h(req.body.hora_final) : undefined
     };
 
-    const { data, error } = await db.from('citas')
+    // Eliminar undefined para no sobreescribir campos
+    Object.keys(cambios).forEach(key => cambios[key] === undefined && delete cambios[key]);
+
+    const { data, error } = await db
+      .from('citas')
       .update(cambios)
       .eq('id_cita', req.params.id)
       .select();
@@ -69,7 +108,9 @@ exports.actualizarCita = async (req, res) => {
   }
 };
 
-// Eliminar cita
+// =========================
+// ELIMINAR CITA
+// =========================
 exports.eliminarCita = async (req, res) => {
   const { error } = await db.from('citas').delete().eq('id_cita', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
