@@ -1,20 +1,50 @@
-// controllers/auth.controller.js
 const bcrypt = require('bcryptjs');
-const Database = require('../config/db'); // Singleton de conexión Supabase
+const Database = require('../config/db'); // Singleton de Supabase
 const db = Database.getInstance();
+const { v4: uuidv4 } = require('uuid'); // Para generar nombre único para la foto
+const fs = require('fs');
 
 // ===========================================
 // REGISTRO DE USUARIO
 // ===========================================
 exports.registrar = async (req, res) => {
   try {
-    const { foto, negocio, nombre, correo, telefono, password } = req.body;
+    const { negocio, nombre, correo, telefono, password } = req.body;
+    let fotoUrl = null;
 
-    if (!foto || !negocio || !nombre || !correo || !telefono || !password) {
+    // Validar campos obligatorios
+    if (!negocio || !nombre || !correo || !telefono || !password) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
-    // Verificar si correo ya está registrado
+    // Si se envió una foto (archivo)
+    if (req.file) {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+
+      // Subir a Supabase Storage
+      const { data, error: uploadError } = await db.storage
+        .from('usuarios')
+        .upload(fileName, fs.readFileSync(req.file.path), { contentType: req.file.mimetype });
+
+      if (uploadError) {
+        console.error('Error al subir foto:', uploadError);
+        return res.status(500).json({ message: 'Error al subir foto' });
+      }
+
+      // Obtener URL pública
+      const { publicUrl, error: urlError } = db.storage.from('usuarios').getPublicUrl(fileName);
+      if (urlError) {
+        console.error('Error al obtener URL pública:', urlError);
+      } else {
+        fotoUrl = publicUrl;
+      }
+
+      // Opcional: eliminar archivo temporal
+      fs.unlinkSync(req.file.path);
+    }
+
+    // Verificar si correo ya existe
     const { data: usuarios, error: errorSelect } = await db
       .from('usuarios')
       .select('*')
@@ -32,9 +62,9 @@ exports.registrar = async (req, res) => {
     // Hashear contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insertar nuevo usuario
+    // Insertar usuario
     const { error: errorInsert } = await db.from('usuarios').insert([
-      { foto, negocio, nombre, correo, telefono, password: hashedPassword }
+      { foto: fotoUrl, negocio, nombre, correo, telefono, password: hashedPassword }
     ]);
 
     if (errorInsert) {
@@ -45,50 +75,6 @@ exports.registrar = async (req, res) => {
     return res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (err) {
     console.error('Error en registro:', err);
-    return res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// ===========================================
-// LOGIN DE USUARIO
-// ===========================================
-exports.login = async (req, res) => {
-  try {
-    const { correo, password } = req.body;
-
-    if (!correo || !password) {
-      return res.status(400).json({ message: 'Correo y contraseña son obligatorios' });
-    }
-
-    // Buscar usuario por correo
-    const { data: usuarios, error: errorSelect } = await db
-      .from('usuarios')
-      .select('*')
-      .eq('correo', correo);
-
-    if (errorSelect) {
-      console.error('Error al consultar usuario:', errorSelect);
-      return res.status(500).json({ message: 'Error interno del servidor' });
-    }
-
-    if (usuarios.length === 0) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    const usuario = usuarios[0];
-
-    // Comparar contraseña
-    const passwordValida = await bcrypt.compare(password, usuario.password);
-    if (!passwordValida) {
-      return res.status(401).json({ message: 'Contraseña incorrecta' });
-    }
-
-    // No enviar password en la respuesta
-    const { password: _, ...usuarioSinPassword } = usuario;
-
-    return res.json({ message: 'Login exitoso', usuario: usuarioSinPassword });
-  } catch (err) {
-    console.error('Error en login:', err);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
