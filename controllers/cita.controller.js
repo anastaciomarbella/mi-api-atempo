@@ -1,7 +1,7 @@
 // controllers/cita.controller.js
 const Database = require('../config/db');
 const db = Database.getInstance().getClient();
-const { v4: uuidv4 } = require('uuid'); // Necesita instalar: npm install uuid
+const { v4: uuidv4 } = require('uuid'); // npm install uuid
 
 // Función para convertir hora AM/PM a 24h
 function convertirHoraAmPmA24h(horaAmPm) {
@@ -15,7 +15,7 @@ function convertirHoraAmPmA24h(horaAmPm) {
 }
 
 // =========================
-// OBTENER CITAS
+// OBTENER TODAS LAS CITAS
 // =========================
 exports.obtenerCitas = async (req, res) => {
   const { data, error } = await db.from('citas').select('*');
@@ -44,7 +44,7 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
   const { data, error } = await db
     .from('citas')
     .select('*')
-    .eq('id_persona', req.params.id_persona);
+    .eq('id_persona_uuid', req.params.id_persona); // usar columna UUID
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -65,8 +65,8 @@ exports.crearCita = async (req, res) => {
     }
 
     const cita = {
-      id_cita: uuidv4(), // Usar UUID para evitar duplicados
-      id_persona,
+      id_cita: uuidv4(),
+      id_persona_uuid: id_persona, // columna correcta para UUID
       fecha,
       hora_inicio: convertirHoraAmPmA24h(hora_inicio),
       hora_final: convertirHoraAmPmA24h(hora_final),
