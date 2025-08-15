@@ -1,6 +1,5 @@
 const Database = require('../config/db');
 const db = Database.getInstance();
-const { sumarTiempo } = require('./utils'); // si ya tienes la función, sino la incluimos abajo
 
 // 🔧 Función para generar avisos usando Supabase
 async function generarAvisos() {
