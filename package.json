@@ -9,9 +9,10 @@
     "dev": "nodemon index.js"
   },
   "keywords": [],
-  "author": "ROMEO CUAHUA GALVEZ",
+  "author": "Marbella Galvez",
   "license": "ISC",
   "dependencies": {
+    "uuid": "^9.0.1",
     "@supabase/supabase-js": "^2.54.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
