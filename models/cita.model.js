@@ -8,7 +8,8 @@ function Cita(row) {
     hora_final: row.hora_final || row.HORA_FINAL,
     nombre_cliente: row.nombre_cliente || row.NOMBRE_CLIENTE,
     numero_cliente: row.numero_cliente || row.NUMERO_CLIENTE,
-    motivo: row.motivo || row.MOTIVO
+    motivo: row.motivo || row.MOTIVO,
+    color: row.color || row.COLOR
   };
 }
 
