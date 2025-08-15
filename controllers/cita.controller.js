@@ -56,7 +56,7 @@ exports.obtenerCitaPorIdPersona = async (req, res) => {
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const { id_persona, fecha, hora_inicio, hora_final, nombre_cliente, titulo, motivo, color } = req.body;
+    const { id_persona,titulo, fecha, hora_inicio, hora_final, nombre_cliente,numero_cliente, motivo, color } = req.body;
 
     if (!id_persona || !fecha || !hora_inicio || !hora_final) {
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
