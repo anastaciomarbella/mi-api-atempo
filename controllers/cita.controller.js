@@ -65,12 +65,13 @@ exports.crearCita = async (req, res) => {
     const cita = {
       id_cita: uuidv4(),
       id_persona,
+      motivo: motivo || null,
       fecha,
       hora_inicio: convertirHoraAmPmA24h(hora_inicio),
       hora_final: convertirHoraAmPmA24h(hora_final),
       nombre_cliente: nombre_cliente || null,
-      titulo: titulo || null,
-      motivo: motivo || null,
+      numero_cliente: numero_cliente || null,
+      motivo: titulo || null,
       color: color || null
     };
 
