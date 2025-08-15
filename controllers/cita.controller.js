@@ -1,8 +1,9 @@
 // controllers/cita.controller.js
 const Database = require('../config/db');
 const db = Database.getInstance().getClient();
-const { v4: uuidv4 } = require('uuid'); // npm install uuid
 const Cita = require('../models/cita.model'); // Usar tu modal
+
+const uuidv4 = () => Math.floor(Math.random() * 1000000); //generar un numero aleatorio como id
 
 // Función para convertir hora AM/PM a 24h
 function convertirHoraAmPmA24h(horaAmPm) {
