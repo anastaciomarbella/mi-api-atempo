@@ -4,7 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 class Database {
   constructor() {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('⚠️ Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en las variables de entorno');
+      throw new Error('⚠️ Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');
     }
 
     console.log('🔌 Conectando a Supabase...');
@@ -13,9 +13,7 @@ class Database {
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       {
-        auth: {
-          persistSession: false
-        }
+        auth: { persistSession: false }
       }
     );
 
@@ -40,51 +38,53 @@ class Database {
   }
 
   async query(table, method, payload = {}) {
-    let queryBuilder = this.client.from(table);
+    let query;
 
     switch (method) {
+
       case 'select':
-        queryBuilder = queryBuilder.select(payload.columns || '*');
+        query = this.client.from(table).select(payload.columns || '*');
 
         if (payload.filters) {
           payload.filters.forEach(({ field, operator, value }) => {
-            queryBuilder = queryBuilder[operator](field, value);
+            query = query[operator](field, value);
           });
         }
         break;
 
       case 'insert':
-        queryBuilder = queryBuilder.insert(payload.data);
+        query = this.client.from(table).insert(payload.data);
         break;
 
       case 'update':
-        queryBuilder = queryBuilder.update(payload.data);
+        query = this.client.from(table).update(payload.data);
 
         if (payload.filters) {
           payload.filters.forEach(({ field, operator, value }) => {
-            queryBuilder = queryBuilder[operator](field, value);
+            query = query[operator](field, value);
           });
         }
         break;
 
       case 'delete':
+        query = this.client.from(table).delete();
+
         if (payload.filters) {
           payload.filters.forEach(({ field, operator, value }) => {
-            queryBuilder = queryBuilder[operator](field, value);
+            query = query[operator](field, value);
           });
         }
-        queryBuilder = queryBuilder.delete();
         break;
 
       default:
         throw new Error(`Método ${method} no soportado`);
     }
 
-    const { data, error } = await queryBuilder;
+    const { data, error } = await query;
 
     if (error) {
       console.error(`❌ Error en ${method} (${table}):`, error.message);
-      throw error;
+      throw new Error(error.message);
     }
 
     return data;
