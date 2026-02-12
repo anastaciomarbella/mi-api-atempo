@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/auth.controller');
-const upload = require('../middlewares/upload');
+const upload = require('../utils/upload'); // Middleware para manejo de archivos
 
 // 🔹 REGISTRO DE USUARIO (CON FOTO)
 router.post('/registro', upload.single('foto'), ctrl.registrar);
