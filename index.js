@@ -3,8 +3,8 @@ console.log('🧪 DB_CLIENT desde index env:', process.env.DB_CLIENT);
 const express = require('express');
 const cors = require('cors');
 const debug = require('debug')('app:server');
-const Database = require('./config/db'); // Tu clase Database para Supabase
-const db = Database.getInstance(); // Instancia singleton de Supabase
+const Database = require('./config/db');
+const db = Database.getInstance();
 const { generarAvisos } = require('./utils/notificador');
 
 const app = express();
@@ -18,7 +18,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Tus rutas, que en sus controladores deben usar req.supabase
+/* 🔴🔴🔴 AGREGA ESTO AQUÍ 🔴🔴🔴 */
+app.get('/api/test', (req, res) => {
+  res.json({
+    ok: true,
+    mensaje: 'API funcionando correctamente'
+  });
+});
+/* 🔴🔴🔴 HASTA AQUÍ 🔴🔴🔴 */
+
+// Tus rutas
 app.use('/api/personas', require('./routes/persona.routes'));
 app.use('/api/citas', require('./routes/cita.routes'));
 app.use('/api/avisos', require('./routes/aviso.routes'));
