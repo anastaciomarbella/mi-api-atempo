@@ -1,26 +1,24 @@
+// utils/upload.js
 const multer = require('multer');
 
-// Guardar el archivo en memoria (buffer)
-// Ideal para subirlo directo a Supabase Storage
+// Almacenamiento en memoria (ideal para Supabase, Cloudinary, etc.)
 const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB máximo
+    fileSize: 5 * 1024 * 1024 // 5 MB máximo
   },
   fileFilter: (req, file, cb) => {
-    // Aceptar solo imágenes
-    if (file.mimetype.startsWith('image/')) {
+    // Tipos permitidos
+    const tiposPermitidos = ['image/jpeg', 'image/png', 'image/jpg'];
+
+    if (tiposPermitidos.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(
-        new Error('Solo se permiten archivos de imagen (jpg, png, jpeg, webp)'),
-        false
-      );
+      cb(new Error('Solo se permiten imágenes JPG y PNG'));
     }
-  },
+  }
 });
 
 module.exports = upload;
-
