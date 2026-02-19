@@ -1,13 +1,23 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const Database = require('../config/db');
 const db = Database.getInstance();
 
+const JWT_SECRET = process.env.JWT_SECRET || "super_secreto_cambiar_en_produccion";
+
 // ===========================================
-// REGISTRO DE USUARIO
+// REGISTRO
 // ===========================================
 exports.registrar = async (req, res) => {
   try {
-    const { nombre, correo, telefono, password, nombreEmpresa } = req.body;
+    let { nombre, correo, telefono, password, nombreEmpresa } = req.body;
+
+    // LIMPIAR DATOS
+    nombre = nombre?.trim();
+    correo = correo?.trim().toLowerCase();
+    telefono = telefono?.trim();
+    password = password?.trim();
+    nombreEmpresa = nombreEmpresa?.trim();
 
     if (!nombre || !correo || !telefono || !password || !nombreEmpresa) {
       return res.status(400).json({
@@ -15,17 +25,12 @@ exports.registrar = async (req, res) => {
       });
     }
 
-    // 1️⃣ Verificar si el correo ya existe
-    const { data: usuarioExistente, error: errorCorreo } = await db
+    // Verificar si ya existe
+    const { data: usuarioExistente } = await db
       .from('usuarios')
       .select('id_usuario')
       .eq('correo', correo)
       .maybeSingle();
-
-    if (errorCorreo) {
-      console.error('Error al verificar correo:', errorCorreo);
-      return res.status(500).json({ message: 'Error interno del servidor' });
-    }
 
     if (usuarioExistente) {
       return res.status(400).json({
@@ -33,7 +38,7 @@ exports.registrar = async (req, res) => {
       });
     }
 
-    // 2️⃣ Crear empresa
+    // Crear empresa
     const { data: empresa, error: errorEmpresa } = await db
       .from('empresas')
       .insert([{ nombre_empresa: nombreEmpresa }])
@@ -41,17 +46,16 @@ exports.registrar = async (req, res) => {
       .single();
 
     if (errorEmpresa) {
-      console.error('Error al crear empresa:', errorEmpresa);
       return res.status(500).json({
         message: 'Error al crear empresa'
       });
     }
 
-    // 3️⃣ Hashear contraseña
+    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4️⃣ Crear usuario
-    const { error: errorUsuario } = await db
+    // Crear usuario
+    const { data: nuevoUsuario, error: errorUsuario } = await db
       .from('usuarios')
       .insert([{
         nombre,
@@ -59,22 +63,25 @@ exports.registrar = async (req, res) => {
         telefono,
         password: hashedPassword,
         id_empresa: empresa.id_empresa
-      }]);
+      }])
+      .select('*')
+      .single();
 
     if (errorUsuario) {
-      console.error('Error al crear usuario:', errorUsuario);
       return res.status(500).json({
         message: 'Error al crear usuario'
       });
     }
 
+    delete nuevoUsuario.password;
+
     return res.status(201).json({
       message: 'Usuario registrado correctamente',
-      id_empresa: empresa.id_empresa
+      usuario: nuevoUsuario
     });
 
   } catch (err) {
-    console.error('Error en registro:', err);
+    console.error(err);
     return res.status(500).json({
       message: 'Error interno del servidor'
     });
@@ -82,23 +89,25 @@ exports.registrar = async (req, res) => {
 };
 
 // ===========================================
-// LOGIN (correo + teléfono)
+// LOGIN
 // ===========================================
 exports.login = async (req, res) => {
   try {
-    const { correo, telefono } = req.body;
+    let { correo, password } = req.body;
 
-    if (!correo || !telefono) {
+    correo = correo?.trim().toLowerCase();
+    password = password?.trim();
+
+    if (!correo || !password) {
       return res.status(400).json({
-        message: 'Correo y teléfono son obligatorios'
+        message: 'Correo y contraseña son obligatorios'
       });
     }
 
     const { data: usuario, error } = await db
       .from('usuarios')
-      .select('id_usuario, nombre, correo, telefono, id_empresa')
+      .select('*')
       .eq('correo', correo)
-      .eq('telefono', telefono)
       .single();
 
     if (error || !usuario) {
@@ -107,13 +116,33 @@ exports.login = async (req, res) => {
       });
     }
 
+    const passwordValido = await bcrypt.compare(password, usuario.password);
+
+    if (!passwordValido) {
+      return res.status(401).json({
+        message: 'Credenciales incorrectas'
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id_usuario: usuario.id_usuario,
+        id_empresa: usuario.id_empresa
+      },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    delete usuario.password;
+
     return res.status(200).json({
       message: 'Login exitoso',
+      token,
       usuario
     });
 
   } catch (err) {
-    console.error('Error en login:', err);
+    console.error(err);
     return res.status(500).json({
       message: 'Error interno del servidor'
     });

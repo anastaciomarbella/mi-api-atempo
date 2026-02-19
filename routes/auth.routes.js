@@ -1,12 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('../controllers/auth.controller');
-const upload = require('../utils/upload'); // Middleware para manejo de archivos
+const authController = require('../controllers/authController');
+const { verificarToken, verificarRol } = require('../middlewares/authMiddleware');
 
-// 🔹 REGISTRO DE USUARIO (CON FOTO)
-router.post('/registro', upload.single('foto'), ctrl.registrar);
+router.post('/register', authController.registrar);
+router.post('/login', authController.login);
 
-// 🔹 LOGIN (SIN FOTO)
-router.post('/login', ctrl.login);
+// Ruta protegida
+router.get('/perfil', verificarToken, (req, res) => {
+  res.json({
+    message: "Perfil protegido",
+    usuario: req.usuario
+  });
+});
+
+// Solo admin
+router.get('/admin', verificarToken, verificarRol("admin"), (req, res) => {
+  res.json({
+    message: "Zona admin"
+  });
+});
 
 module.exports = router;
