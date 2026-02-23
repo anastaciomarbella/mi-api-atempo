@@ -12,7 +12,6 @@ exports.registrar = async (req, res) => {
   try {
     let { nombre, correo, telefono, password, nombreEmpresa } = req.body;
 
-    // LIMPIAR DATOS
     nombre = nombre?.trim();
     correo = correo?.trim().toLowerCase();
     telefono = telefono?.trim();
@@ -25,7 +24,6 @@ exports.registrar = async (req, res) => {
       });
     }
 
-    // Verificar si ya existe
     const { data: usuarioExistente } = await db
       .from('usuarios')
       .select('id_usuario')
@@ -38,23 +36,30 @@ exports.registrar = async (req, res) => {
       });
     }
 
-    // Crear empresa
+    // 📌 Construir URL del logo
+    const logoUrl = req.file
+      ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
+      : null;
+
+    // Crear empresa con logo_url
     const { data: empresa, error: errorEmpresa } = await db
       .from('empresas')
-      .insert([{ nombre_empresa: nombreEmpresa }])
-      .select('id_empresa')
+      .insert([{
+        nombre_empresa: nombreEmpresa,
+        logo_url: logoUrl
+      }])
+      .select('id_empresa, nombre_empresa, logo_url')
       .single();
 
     if (errorEmpresa) {
+      console.error(errorEmpresa);
       return res.status(500).json({
         message: 'Error al crear empresa'
       });
     }
 
-    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Crear usuario
     const { data: nuevoUsuario, error: errorUsuario } = await db
       .from('usuarios')
       .insert([{
@@ -68,6 +73,7 @@ exports.registrar = async (req, res) => {
       .single();
 
     if (errorUsuario) {
+      console.error(errorUsuario);
       return res.status(500).json({
         message: 'Error al crear usuario'
       });
@@ -77,7 +83,11 @@ exports.registrar = async (req, res) => {
 
     return res.status(201).json({
       message: 'Usuario registrado correctamente',
-      usuario: nuevoUsuario
+      usuario: {
+        ...nuevoUsuario,
+        nombre_empresa: empresa.nombre_empresa,
+        logo_url: empresa.logo_url
+      }
     });
 
   } catch (err) {
@@ -106,7 +116,13 @@ exports.login = async (req, res) => {
 
     const { data: usuario, error } = await db
       .from('usuarios')
-      .select('*')
+      .select(`
+        *,
+        empresas (
+          nombre_empresa,
+          logo_url
+        )
+      `)
       .eq('correo', correo)
       .single();
 
@@ -133,12 +149,18 @@ exports.login = async (req, res) => {
       { expiresIn: '8h' }
     );
 
-    delete usuario.password;
+    const usuarioResponse = {
+      id_usuario: usuario.id_usuario,
+      nombre: usuario.nombre,
+      correo: usuario.correo,
+      nombre_empresa: usuario.empresas?.nombre_empresa,
+      logo_url: usuario.empresas?.logo_url
+    };
 
     return res.status(200).json({
       message: 'Login exitoso',
       token,
-      usuario
+      usuario: usuarioResponse
     });
 
   } catch (err) {

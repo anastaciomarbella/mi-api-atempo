@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
-const { verificarToken, verificarRol } = require('../midlewares/authMiddleware');
+const { verificarToken, verificarRol } = require('../middlewares/authMiddleware');
+const upload = require('../middlewares/upload');
 
-router.post('/register', authController.registrar);
+router.post('/register', upload.single('logo'), authController.registrar);
 router.post('/login', authController.login);
 
-// Ruta protegida
 router.get('/perfil', verificarToken, (req, res) => {
   res.json({
     message: "Perfil protegido",
@@ -14,7 +14,6 @@ router.get('/perfil', verificarToken, (req, res) => {
   });
 });
 
-// Solo admin
 router.get('/admin', verificarToken, verificarRol("admin"), (req, res) => {
   res.json({
     message: "Zona admin"
