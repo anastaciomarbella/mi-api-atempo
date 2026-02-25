@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("../config/db");
-const supabase = require("../config/supabase");
+
 
 const db = Database.getInstance();
 
