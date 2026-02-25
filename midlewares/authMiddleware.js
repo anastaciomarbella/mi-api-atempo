@@ -1,7 +1,10 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "secreto123";
 
+// =========================
+// VERIFICAR TOKEN
+// =========================
 exports.verificarToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -13,17 +16,19 @@ exports.verificarToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.usuario = decoded;
+    req.usuario = decoded; // 👈 aquí viene id, id_persona, rol, etc.
     next();
   } catch (err) {
     return res.status(401).json({ message: "Token inválido" });
   }
 };
 
-// Middleware para roles
+// =========================
+// VERIFICAR ROL
+// =========================
 exports.verificarRol = (rolRequerido) => {
   return (req, res, next) => {
-    if (req.usuario.rol !== rolRequerido) {
+    if (!req.usuario || req.usuario.rol !== rolRequerido) {
       return res.status(403).json({ message: "Acceso denegado" });
     }
     next();

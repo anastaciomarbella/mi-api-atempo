@@ -1,123 +1,92 @@
-// controllers/cita.controller.js
-const Database = require('../config/db');
+const Database = require("../config/db");
 const db = Database.getInstance().getClient();
-const Cita = require('../models/cita.model'); // Usar tu modal
+const Cita = require("../models/cita.model");
 
-const uuidv4 = () => Math.floor(Math.random() * 1000000); //generar un numero aleatorio como id
-
-// Función para convertir hora AM/PM a 24h
-function convertirHoraAmPmA24h(horaAmPm) {
-  if (!horaAmPm) return null;
-  const [time, modifier] = horaAmPm.trim().split(' ');
-  let [hours, minutes] = time.split(':');
-  hours = parseInt(hours, 10);
-  if (modifier?.toUpperCase() === 'PM' && hours < 12) hours += 12;
-  if (modifier?.toUpperCase() === 'AM' && hours === 12) hours = 0;
-  return `${String(hours).padStart(2, '0')}:${minutes}:00`;
-}
+const uuidv4 = () => Math.floor(Math.random() * 1000000);
 
 // =========================
-// OBTENER TODAS LAS CITAS
+// OBTENER SOLO MIS CITAS
 // =========================
 exports.obtenerCitas = async (req, res) => {
-  const { data, error } = await db.from('citas').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(row => Cita(row)));
+  try {
+    const idPersona = req.usuario.id_persona || req.usuario.id;
+
+    const { data, error } = await db
+      .from("citas")
+      .select("*")
+      .eq("id_persona", idPersona);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json(data.map(row => Cita(row)));
+  } catch {
+    res.status(500).json({ error: "Error interno" });
+  }
 };
 
 // =========================
-// OBTENER CITA POR ID
-// =========================
-exports.obtenerCitaPorId = async (req, res) => {
-  const { data, error } = await db
-    .from('citas')
-    .select('*')
-    .eq('id_cita', req.params.id);
-
-  if (error) return res.status(500).json({ error: error.message });
-  if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-  res.json(Cita(data[0]));
-};
-
-// =========================
-// OBTENER CITAS POR ID_PERSONA
-// =========================
-exports.obtenerCitaPorIdPersona = async (req, res) => {
-  const { data, error } = await db
-    .from('citas')
-    .select('*')
-    .eq('id_persona', req.params.id_persona);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(row => Cita(row)));
-};
-
-// =========================
-// CREAR CITA
+// CREAR CITA (SEGURA)
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const { id_persona,titulo, fecha, hora_inicio, hora_final, nombre_cliente,numero_cliente, motivo, color } = req.body;
+    const idPersona = req.usuario.id_persona || req.usuario.id;
+    const { titulo, fecha, hora_inicio, hora_final, color } = req.body;
 
-    if (!id_persona || !fecha || !hora_inicio || !hora_final) {
-      return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    if (!fecha || !hora_inicio || !hora_final) {
+      return res.status(400).json({ error: "Datos incompletos" });
     }
 
     const cita = {
       id_cita: uuidv4(),
-      id_persona,
-      titulo: titulo || null,
+      id_persona: idPersona,
+      titulo,
       fecha,
-      hora_inicio: convertirHoraAmPmA24h(hora_inicio),
-      hora_final: convertirHoraAmPmA24h(hora_final),
-      nombre_cliente: nombre_cliente || null,
-      numero_cliente: numero_cliente || null,
-      motivo: titulo || null,
-      color: color || null
+      hora_inicio,
+      hora_final,
+      color
     };
 
-    const { data, error } = await db.from('citas').insert([cita]).select();
-    if (error) return res.status(500).json({ error: `Error al guardar la cita: ${error.message}` });
+    const { data, error } = await db.from("citas").insert([cita]).select();
+    if (error) return res.status(500).json({ error: error.message });
 
-    res.status(201).json({ message: 'Cita creada', cita: Cita(data[0]) });
-  } catch (err) {
-    res.status(500).json({ error: 'Error interno en el servidor' });
+    res.status(201).json(Cita(data[0]));
+  } catch {
+    res.status(500).json({ error: "Error interno" });
   }
 };
 
 // =========================
-// ACTUALIZAR CITA
+// ACTUALIZAR CITA (PROTEGIDA)
 // =========================
 exports.actualizarCita = async (req, res) => {
-  try {
-    const cambios = {
-      ...req.body,
-      hora_inicio: req.body.hora_inicio ? convertirHoraAmPmA24h(req.body.hora_inicio) : undefined,
-      hora_final: req.body.hora_final ? convertirHoraAmPmA24h(req.body.hora_final) : undefined
-    };
+  const idPersona = req.usuario.id_persona || req.usuario.id;
 
-    Object.keys(cambios).forEach(key => cambios[key] === undefined && delete cambios[key]);
+  const { data, error } = await db
+    .from("citas")
+    .update(req.body)
+    .eq("id_cita", req.params.id)
+    .eq("id_persona", idPersona)
+    .select();
 
-    const { data, error } = await db
-      .from('citas')
-      .update(cambios)
-      .eq('id_cita', req.params.id)
-      .select();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data.length) return res.status(404).json({ error: "No autorizada" });
 
-    if (error) return res.status(500).json({ error: error.message });
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-
-    res.json({ message: 'Cita actualizada', cita: Cita(data[0]) });
-  } catch (err) {
-    res.status(500).json({ error: 'Error interno en el servidor' });
-  }
+  res.json(Cita(data[0]));
 };
 
 // =========================
-// ELIMINAR CITA
+// ELIMINAR CITA (PROTEGIDA)
 // =========================
 exports.eliminarCita = async (req, res) => {
-  const { error } = await db.from('citas').delete().eq('id_cita', req.params.id);
+  const idPersona = req.usuario.id_persona || req.usuario.id;
+
+  const { error } = await db
+    .from("citas")
+    .delete()
+    .eq("id_cita", req.params.id)
+    .eq("id_persona", idPersona);
+
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ message: 'Cita eliminada' });
+
+  res.json({ message: "Cita eliminada" });
 };
