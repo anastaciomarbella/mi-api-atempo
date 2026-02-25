@@ -142,7 +142,7 @@ exports.registrar = async (req, res) => {
 };
 
 // ===========================================
-// LOGIN
+// LOGIN (CORREGIDO)
 // ===========================================
 exports.login = async (req, res) => {
   try {
@@ -160,7 +160,13 @@ exports.login = async (req, res) => {
     const { data: usuario, error } = await db
       .from("usuarios")
       .select(`
-        *,
+        id_usuario,
+        id_persona,
+        nombre,
+        correo,
+        telefono,
+        id_empresa,
+        password,
         empresas (
           nombre_empresa,
           logo_url
@@ -183,17 +189,21 @@ exports.login = async (req, res) => {
       });
     }
 
+    // ✅ TOKEN CON id_persona
     const token = jwt.sign(
       {
         id_usuario: usuario.id_usuario,
+        id_persona: usuario.id_persona, // 🔑 CLAVE
         id_empresa: usuario.id_empresa,
       },
       JWT_SECRET,
       { expiresIn: "8h" }
     );
 
+    // ✅ USUARIO CON id_persona
     const usuarioResponse = {
       id_usuario: usuario.id_usuario,
+      id_persona: usuario.id_persona, // 🔑 CLAVE
       nombre: usuario.nombre,
       correo: usuario.correo,
       telefono: usuario.telefono,

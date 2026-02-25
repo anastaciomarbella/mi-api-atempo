@@ -9,17 +9,17 @@ const uuidv4 = () => Math.floor(Math.random() * 1000000);
 // =========================
 exports.obtenerCitas = async (req, res) => {
   try {
-    const idPersona = req.usuario.id_persona || req.usuario.id;
+    const idUsuario = req.usuario.id_usuario; // ✅ CORRECTO
 
     const { data, error } = await db
       .from("citas")
       .select("*")
-      .eq("id_persona", idPersona);
+      .eq("id_usuario", idUsuario); // 🔐 FILTRO REAL
 
     if (error) return res.status(500).json({ error: error.message });
 
     res.json(data.map(row => Cita(row)));
-  } catch {
+  } catch (err) {
     res.status(500).json({ error: "Error interno" });
   }
 };
@@ -29,7 +29,7 @@ exports.obtenerCitas = async (req, res) => {
 // =========================
 exports.crearCita = async (req, res) => {
   try {
-    const idPersona = req.usuario.id_persona || req.usuario.id;
+    const idUsuario = req.usuario.id_usuario;
     const { titulo, fecha, hora_inicio, hora_final, color } = req.body;
 
     if (!fecha || !hora_inicio || !hora_final) {
@@ -38,7 +38,7 @@ exports.crearCita = async (req, res) => {
 
     const cita = {
       id_cita: uuidv4(),
-      id_persona: idPersona,
+      id_usuario: idUsuario, // ✅ ASIGNADO DESDE TOKEN
       titulo,
       fecha,
       hora_inicio,
@@ -46,11 +46,15 @@ exports.crearCita = async (req, res) => {
       color
     };
 
-    const { data, error } = await db.from("citas").insert([cita]).select();
+    const { data, error } = await db
+      .from("citas")
+      .insert([cita])
+      .select();
+
     if (error) return res.status(500).json({ error: error.message });
 
     res.status(201).json(Cita(data[0]));
-  } catch {
+  } catch (err) {
     res.status(500).json({ error: "Error interno" });
   }
 };
@@ -59,17 +63,19 @@ exports.crearCita = async (req, res) => {
 // ACTUALIZAR CITA (PROTEGIDA)
 // =========================
 exports.actualizarCita = async (req, res) => {
-  const idPersona = req.usuario.id_persona || req.usuario.id;
+  const idUsuario = req.usuario.id_usuario;
 
   const { data, error } = await db
     .from("citas")
     .update(req.body)
     .eq("id_cita", req.params.id)
-    .eq("id_persona", idPersona)
+    .eq("id_usuario", idUsuario) // 🔐 PROTECCIÓN
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
-  if (!data.length) return res.status(404).json({ error: "No autorizada" });
+  if (!data.length) {
+    return res.status(404).json({ error: "No autorizada o no existe" });
+  }
 
   res.json(Cita(data[0]));
 };
@@ -78,13 +84,13 @@ exports.actualizarCita = async (req, res) => {
 // ELIMINAR CITA (PROTEGIDA)
 // =========================
 exports.eliminarCita = async (req, res) => {
-  const idPersona = req.usuario.id_persona || req.usuario.id;
+  const idUsuario = req.usuario.id_usuario;
 
   const { error } = await db
     .from("citas")
     .delete()
     .eq("id_cita", req.params.id)
-    .eq("id_persona", idPersona);
+    .eq("id_usuario", idUsuario); // 🔐 PROTECCIÓN
 
   if (error) return res.status(500).json({ error: error.message });
 
