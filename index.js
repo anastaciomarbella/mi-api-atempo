@@ -1,64 +1,47 @@
 require('dotenv').config();
-
+console.log('🧪 DB_CLIENT desde index env:', process.env.DB_CLIENT);
 const express = require('express');
 const cors = require('cors');
 const debug = require('debug')('app:server');
 const Database = require('./config/db');
+const db = Database.getInstance();
 const { generarAvisos } = require('./utils/notificador');
 
 const app = express();
-const db = Database.getInstance();
 
-// 🔥 IMPORTANTE PARA RENDER (detecta https correctamente)
-app.set('trust proxy', 1);
-
-// Middlewares
+app.use('/uploads', express.static('uploads'));
 app.use(express.json());
+app.use(cors({ origin: 'https://atempo-react.onrender.com', credentials: true }));
 
-app.use(cors({
-  origin: 'https://atempo-react.onrender.com',
-  credentials: true
-}));
-
-// Middleware para adjuntar cliente Supabase
+// Middleware para adjuntar el cliente supabase en req
 app.use((req, res, next) => {
   req.supabase = db.getClient();
   next();
 });
 
-// ===============================
-// 🔹 Ruta de prueba
-// ===============================
+/* 🔴🔴🔴 AGREGA ESTO AQUÍ 🔴🔴🔴 */
 app.get('/api/test', (req, res) => {
   res.json({
     ok: true,
     mensaje: 'API funcionando correctamente'
   });
 });
+/* 🔴🔴🔴 HASTA AQUÍ 🔴🔴🔴 */
 
-// ===============================
-// 🔹 Rutas principales
-// ===============================
+// Tus rutas
 app.use('/api/personas', require('./routes/persona.routes'));
 app.use('/api/citas', require('./routes/cita.routes'));
 app.use('/api/avisos', require('./routes/aviso.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/frecuentes', require('./routes/clientes.routes'));
 
-// ===============================
-// 🔹 Servidor
-// ===============================
 const PORT = process.env.PORT || 3001;
-
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor iniciado correctamente en puerto ${PORT}`);
+  console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
 });
 
-// ===============================
-// 🔹 Sistema automático de avisos
-// ===============================
+// Ejecutar función de avisos cada 30 minutos
 const INTERVALO_MINUTOS = 30;
-
 setInterval(() => {
   generarAvisos();
 }, INTERVALO_MINUTOS * 60 * 1000);
