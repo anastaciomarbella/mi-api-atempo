@@ -19,12 +19,10 @@ exports.registrar = async (req, res) => {
     nombreEmpresa = nombreEmpresa?.trim();
 
     if (!nombre || !correo || !telefono || !password || !nombreEmpresa) {
-      return res.status(400).json({
-        message: "Todos los campos son obligatorios",
-      });
+      return res.status(400).json({ message: "Todos los campos son obligatorios" });
     }
 
-    // 🔎 Verificar si el correo ya existe
+    // Verificar si el correo ya existe
     const { data: usuarioExistente } = await db
       .from("usuarios")
       .select("id_usuario")
@@ -32,12 +30,10 @@ exports.registrar = async (req, res) => {
       .maybeSingle();
 
     if (usuarioExistente) {
-      return res.status(400).json({
-        message: "El correo ya está registrado",
-      });
+      return res.status(400).json({ message: "El correo ya está registrado" });
     }
 
-    // 1️⃣ Crear empresa (sin logo aún)
+    // Crear empresa
     const { data: empresa, error: errorEmpresa } = await db
       .from("empresas")
       .insert([{ nombre_empresa: nombreEmpresa }])
@@ -46,25 +42,18 @@ exports.registrar = async (req, res) => {
 
     if (errorEmpresa) {
       console.error(errorEmpresa);
-      return res.status(500).json({
-        message: "Error al crear empresa",
-      });
+      return res.status(500).json({ message: "Error al crear empresa" });
     }
 
-    // 2️⃣ Subir logo a Supabase Storage (service role)
+    // Subir logo si hay archivo
     let logoUrl = null;
-
     if (req.file) {
       const ext = req.file.originalname.split(".").pop().toLowerCase();
-
       if (!["jpg", "jpeg", "png"].includes(ext)) {
-        return res.status(400).json({
-          message: "Solo se permiten imágenes JPG o PNG",
-        });
+        return res.status(400).json({ message: "Solo se permiten imágenes JPG o PNG" });
       }
 
       const filePath = `${empresa.id_empresa}/logo.${ext}`;
-
       const { error: uploadError } = await supabase.storage
         .from("logotipo")
         .upload(filePath, req.file.buffer, {
@@ -74,72 +63,47 @@ exports.registrar = async (req, res) => {
 
       if (uploadError) {
         console.error(uploadError);
-        return res.status(500).json({
-          message: "Error al subir el logo",
-        });
+        return res.status(500).json({ message: "Error al subir el logo" });
       }
 
-      const { data } = supabase.storage
-        .from("logotipo")
-        .getPublicUrl(filePath);
-
+      const { data } = supabase.storage.from("logotipo").getPublicUrl(filePath);
       logoUrl = data.publicUrl;
 
-      // Guardar logo en empresa
-      await db
-        .from("empresas")
-        .update({ logo_url: logoUrl })
-        .eq("id_empresa", empresa.id_empresa);
+      await db.from("empresas").update({ logo_url: logoUrl }).eq("id_empresa", empresa.id_empresa);
     }
 
-    // 3️⃣ Crear usuario
+    // Crear usuario
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const { data: nuevoUsuario, error: errorUsuario } = await db
       .from("usuarios")
-      .insert([{
-        nombre,
-        correo,
-        telefono,
-        password: hashedPassword,
-        id_empresa: empresa.id_empresa,
-      }])
+      .insert([{ nombre, correo, telefono, password: hashedPassword, id_empresa: empresa.id_empresa }])
       .select("*")
       .single();
 
     if (errorUsuario) {
       console.error(errorUsuario);
-      return res.status(500).json({
-        message: "Error al crear usuario",
-      });
+      return res.status(500).json({ message: "Error al crear usuario" });
     }
 
     delete nuevoUsuario.password;
 
     return res.status(201).json({
       message: "Usuario registrado correctamente",
-      usuario: {
-        ...nuevoUsuario,
-        nombre_empresa: empresa.nombre_empresa,
-        logo_url: logoUrl,
-      },
+      usuario: { ...nuevoUsuario, nombre_empresa: empresa.nombre_empresa, logo_url: logoUrl },
     });
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      message: "Error interno del servidor",
-    });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
 // ===========================================
-// LOGIN (solo correo y contraseña)
+// LOGIN (correo + contraseña, empresa + citas del usuario)
 // ===========================================
 exports.login = async (req, res) => {
   try {
     let { correo, password } = req.body;
-
     correo = correo?.trim().toLowerCase();
     password = password?.trim();
 
@@ -147,36 +111,44 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Correo y contraseña son obligatorios" });
     }
 
-    // Buscar usuario solo por correo, sin join con empresas
-    const { data: usuario, error } = await db
+    // Buscar usuario
+    const { data: usuario, error: errorUsuario } = await db
       .from("usuarios")
       .select("*")
       .eq("correo", correo)
-      .maybeSingle(); // evita errores si no hay fila
+      .maybeSingle();
 
-    if (!usuario || error) {
+    if (!usuario || errorUsuario) {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // Comparar contraseña
+    // Verificar contraseña
     const passwordValido = await bcrypt.compare(password, usuario.password);
-
     if (!passwordValido) {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // Generar JWT
+    // Obtener empresa asociada
+    const { data: empresa } = await db
+      .from("empresas")
+      .select("nombre_empresa, logo_url")
+      .eq("id_empresa", usuario.id_empresa)
+      .maybeSingle();
+
+    // Obtener solo citas de este usuario
+    const { data: citas } = await db
+      .from("citas")
+      .select("*")
+      .eq("id_usuario", usuario.id_usuario);
+
+    // Generar token
     const token = jwt.sign(
-      {
-        id_usuario: usuario.id_usuario,
-        id_persona: usuario.id_persona,
-        id_empresa: usuario.id_empresa,
-      },
+      { id_usuario: usuario.id_usuario, id_persona: usuario.id_persona, id_empresa: usuario.id_empresa },
       JWT_SECRET,
       { expiresIn: "8h" }
     );
 
-    // Respuesta solo con datos esenciales del usuario
+    // Responder con usuario, empresa y citas
     return res.status(200).json({
       message: "Login exitoso",
       token,
@@ -187,6 +159,9 @@ exports.login = async (req, res) => {
         correo: usuario.correo,
         telefono: usuario.telefono,
         id_empresa: usuario.id_empresa,
+        nombre_empresa: empresa?.nombre_empresa || null,
+        logo_url: empresa?.logo_url || null,
+        citas: citas || [],
       },
     });
 
