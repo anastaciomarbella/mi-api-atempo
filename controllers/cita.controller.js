@@ -3,21 +3,13 @@ const db = Database.getInstance().getClient();
 const Cita = require("../models/cita.model");
 
 // =========================
-// OBTENER SOLO MIS CITAS
-// (sin romper FK)
+// OBTENER CITAS
 // =========================
 exports.obtenerCitas = async (req, res) => {
   try {
     if (!req.usuario || !req.usuario.id_usuario) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
-
-    /*
-      ⚠️ IMPORTANTE
-      Aquí seguimos usando id_usuario SOLO para control,
-      pero NO como id_persona.
-      Asumimos que el frontend pide sus citas normales.
-    */
 
     const { data, error } = await db
       .from("citas")
@@ -28,7 +20,7 @@ exports.obtenerCitas = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    res.json(data.map(row => Cita(row)));
+    res.json(data.map(c => Cita(c)));
   } catch (err) {
     console.error("Error interno:", err);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -36,7 +28,7 @@ exports.obtenerCitas = async (req, res) => {
 };
 
 // =========================
-// CREAR CITA (FIX DEFINITIVO)
+// CREAR CITA
 // =========================
 exports.crearCita = async (req, res) => {
   try {
@@ -45,6 +37,7 @@ exports.crearCita = async (req, res) => {
     }
 
     const {
+      id_cliente,        // 👈 cliente de la cita
       titulo,
       fecha,
       hora_inicio,
@@ -55,51 +48,20 @@ exports.crearCita = async (req, res) => {
       color
     } = req.body;
 
-    if (!fecha || !hora_inicio || !hora_final || !nombre_cliente) {
+    if (
+      !id_cliente ||
+      !titulo ||
+      !fecha ||
+      !hora_inicio ||
+      !hora_final
+    ) {
       return res.status(400).json({ error: "Datos incompletos" });
     }
 
-    // =========================
-    // 1. BUSCAR PERSONA REAL
-    // =========================
-    const { data: persona } = await db
-      .from("personas")
-      .select("id_persona")
-      .eq("telefono", numero_cliente)
-      .single();
-
-    let id_persona;
-
-    // =========================
-    // 2. CREAR PERSONA SI NO EXISTE
-    // =========================
-    if (!persona) {
-      const { data: nuevaPersona, error } = await db
-        .from("personas")
-        .insert({
-          nombre: nombre_cliente,
-          telefono: numero_cliente
-        })
-        .select("id_persona")
-        .single();
-
-      if (error) {
-        console.error("Error creando persona:", error);
-        return res.status(500).json({ error: error.message });
-      }
-
-      id_persona = nuevaPersona.id_persona;
-    } else {
-      id_persona = persona.id_persona;
-    }
-
-    // =========================
-    // 3. CREAR CITA (FK OK)
-    // =========================
     const { data, error } = await db
       .from("citas")
       .insert({
-        id_persona,
+        id_cliente,
         titulo,
         fecha,
         hora_inicio,
@@ -143,10 +105,6 @@ exports.actualizarCita = async (req, res) => {
     if (error) {
       console.error("Error Supabase:", error);
       return res.status(500).json({ error: error.message });
-    }
-
-    if (!data) {
-      return res.status(404).json({ error: "Cita no encontrada" });
     }
 
     res.json(Cita(data));
