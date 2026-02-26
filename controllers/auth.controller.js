@@ -2,9 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("../config/db");
 
-
 const db = Database.getInstance();
-
 const JWT_SECRET = process.env.JWT_SECRET || "super_secreto_cambiar_en_produccion";
 
 // ===========================================
@@ -42,11 +40,7 @@ exports.registrar = async (req, res) => {
     // 1️⃣ Crear empresa (sin logo aún)
     const { data: empresa, error: errorEmpresa } = await db
       .from("empresas")
-      .insert([
-        {
-          nombre_empresa: nombreEmpresa,
-        },
-      ])
+      .insert([{ nombre_empresa: nombreEmpresa }])
       .select("id_empresa, nombre_empresa")
       .single();
 
@@ -103,15 +97,13 @@ exports.registrar = async (req, res) => {
 
     const { data: nuevoUsuario, error: errorUsuario } = await db
       .from("usuarios")
-      .insert([
-        {
-          nombre,
-          correo,
-          telefono,
-          password: hashedPassword,
-          id_empresa: empresa.id_empresa,
-        },
-      ])
+      .insert([{
+        nombre,
+        correo,
+        telefono,
+        password: hashedPassword,
+        id_empresa: empresa.id_empresa,
+      }])
       .select("*")
       .single();
 
@@ -142,7 +134,7 @@ exports.registrar = async (req, res) => {
 };
 
 // ===========================================
-// LOGIN (CORREGIDO)
+// LOGIN (solo correo y contraseña)
 // ===========================================
 exports.login = async (req, res) => {
   try {
@@ -152,76 +144,54 @@ exports.login = async (req, res) => {
     password = password?.trim();
 
     if (!correo || !password) {
-      return res.status(400).json({
-        message: "Correo y contraseña son obligatorios",
-      });
+      return res.status(400).json({ message: "Correo y contraseña son obligatorios" });
     }
 
+    // Buscar usuario solo por correo, sin join con empresas
     const { data: usuario, error } = await db
       .from("usuarios")
-      .select(`
-        id_usuario,
-        id_persona,
-        nombre,
-        correo,
-        telefono,
-        id_empresa,
-        password,
-        empresas (
-          nombre_empresa,
-          logo_url
-        )
-      `)
+      .select("*")
       .eq("correo", correo)
-      .single();
+      .maybeSingle(); // evita errores si no hay fila
 
-    if (error || !usuario) {
-      return res.status(401).json({
-        message: "Credenciales incorrectas",
-      });
+    if (!usuario || error) {
+      return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
+    // Comparar contraseña
     const passwordValido = await bcrypt.compare(password, usuario.password);
 
     if (!passwordValido) {
-      return res.status(401).json({
-        message: "Credenciales incorrectas",
-      });
+      return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // ✅ TOKEN CON id_persona
+    // Generar JWT
     const token = jwt.sign(
       {
         id_usuario: usuario.id_usuario,
-        id_persona: usuario.id_persona, // 🔑 CLAVE
+        id_persona: usuario.id_persona,
         id_empresa: usuario.id_empresa,
       },
       JWT_SECRET,
       { expiresIn: "8h" }
     );
 
-    // ✅ USUARIO CON id_persona
-    const usuarioResponse = {
-      id_usuario: usuario.id_usuario,
-      id_persona: usuario.id_persona, // 🔑 CLAVE
-      nombre: usuario.nombre,
-      correo: usuario.correo,
-      telefono: usuario.telefono,
-      id_empresa: usuario.id_empresa,
-      nombre_empresa: usuario.empresas?.nombre_empresa,
-      logo_url: usuario.empresas?.logo_url,
-    };
-
+    // Respuesta solo con datos esenciales del usuario
     return res.status(200).json({
       message: "Login exitoso",
       token,
-      usuario: usuarioResponse,
+      usuario: {
+        id_usuario: usuario.id_usuario,
+        id_persona: usuario.id_persona,
+        nombre: usuario.nombre,
+        correo: usuario.correo,
+        telefono: usuario.telefono,
+        id_empresa: usuario.id_empresa,
+      },
     });
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      message: "Error interno del servidor",
-    });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
