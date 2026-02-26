@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const Database = require("../config/db");
 
 const db = Database.getInstance();
-const JWT_SECRET = process.env.JWT_SECRET || "super_secreto_cambiar_en_produccion";
+const JWT_SECRET = process.env.JWT_SECRET || "secreto123";
 
 // ===========================================
 // REGISTRO
