@@ -3,7 +3,7 @@ const db = Database.getInstance().getClient();
 const Cita = require("../models/cita.model");
 
 // =========================
-// OBTENER CITAS
+// OBTENER CITAS (SOLO DEL USUARIO)
 // =========================
 exports.obtenerCitas = async (req, res) => {
   try {
@@ -13,7 +13,10 @@ exports.obtenerCitas = async (req, res) => {
 
     const { data, error } = await db
       .from("citas")
-      .select("*");
+      .select("*")
+      .eq("id_usuario", req.usuario.id_usuario) // 🔐 FILTRO CLAVE
+      .order("fecha", { ascending: true })
+      .order("hora_inicio", { ascending: true });
 
     if (error) {
       console.error("Error Supabase:", error);
@@ -37,7 +40,7 @@ exports.crearCita = async (req, res) => {
     }
 
     const {
-      id_cliente,        // 👈 cliente de la cita
+      id_cliente,        // 👈 CLIENTE DE LA CITA
       titulo,
       fecha,
       hora_inicio,
@@ -48,19 +51,14 @@ exports.crearCita = async (req, res) => {
       color
     } = req.body;
 
-    if (
-      !id_cliente ||
-      !titulo ||
-      !fecha ||
-      !hora_inicio ||
-      !hora_final
-    ) {
+    if (!id_cliente || !titulo || !fecha || !hora_inicio || !hora_final) {
       return res.status(400).json({ error: "Datos incompletos" });
     }
 
     const { data, error } = await db
       .from("citas")
       .insert({
+        id_usuario: req.usuario.id_usuario, // 🔐 DUEÑO DE LA CITA
         id_cliente,
         titulo,
         fecha,
@@ -87,7 +85,7 @@ exports.crearCita = async (req, res) => {
 };
 
 // =========================
-// ACTUALIZAR CITA
+// ACTUALIZAR CITA (SOLO DEL USUARIO)
 // =========================
 exports.actualizarCita = async (req, res) => {
   try {
@@ -99,12 +97,17 @@ exports.actualizarCita = async (req, res) => {
       .from("citas")
       .update(req.body)
       .eq("id_cita", req.params.id)
+      .eq("id_usuario", req.usuario.id_usuario) // 🔐 PROTECCIÓN
       .select()
       .single();
 
     if (error) {
       console.error("Error Supabase:", error);
       return res.status(500).json({ error: error.message });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: "Cita no encontrada" });
     }
 
     res.json(Cita(data));
@@ -115,7 +118,7 @@ exports.actualizarCita = async (req, res) => {
 };
 
 // =========================
-// ELIMINAR CITA
+// ELIMINAR CITA (SOLO DEL USUARIO)
 // =========================
 exports.eliminarCita = async (req, res) => {
   try {
@@ -126,7 +129,8 @@ exports.eliminarCita = async (req, res) => {
     const { error } = await db
       .from("citas")
       .delete()
-      .eq("id_cita", req.params.id);
+      .eq("id_cita", req.params.id)
+      .eq("id_usuario", req.usuario.id_usuario); // 🔐 PROTECCIÓN
 
     if (error) {
       console.error("Error Supabase:", error);
