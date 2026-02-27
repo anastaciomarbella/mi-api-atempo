@@ -89,10 +89,13 @@ exports.registrar = async (req, res) => {
       .select("*")
       .single();
 
-    if (errorUsuario) {
-      return res.status(500).json({ message: "Error al crear usuario" });
-    }
-
+   if (errorUsuario) {
+  console.error("ERROR USUARIO:", errorUsuario);
+  return res.status(500).json({ 
+    message: "Error al crear usuario",
+    error: errorUsuario
+  });
+}
     delete usuario.password;
 
     res.status(201).json({
