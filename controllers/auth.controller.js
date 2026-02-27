@@ -1,7 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("../config/db");
-const { supabase } = require("../config/supabaseClient"); // 👈 IMPORTANTE
 
 const db = Database.getInstance();
 const JWT_SECRET = process.env.JWT_SECRET || "secreto123";
