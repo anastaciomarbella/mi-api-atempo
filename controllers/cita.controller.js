@@ -1,26 +1,22 @@
+// controllers/cita.controller.js
 const Database = require("../config/db");
 const db = Database.getInstance().getClient();
 const Cita = require("../models/cita.model");
 
 // ==================================================
-// OBTENER CITAS (POR USUARIO + EMPRESA)
+// OBTENER CITAS (POR EMPRESA)
 // ==================================================
 exports.obtenerCitas = async (req, res) => {
   try {
-    if (
-      !req.usuario ||
-      !req.usuario.id_usuario ||
-      !req.usuario.id_empresa
-    ) {
+    if (!req.usuario || !req.usuario.id_empresa) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
-    const { id_usuario, id_empresa } = req.usuario;
+    const { id_empresa } = req.usuario;
 
     const { data, error } = await db
       .from("citas")
       .select("*")
-      .eq("id_usuario", id_usuario)
       .eq("id_empresa", id_empresa)
       .order("fecha", { ascending: true })
       .order("hora_inicio", { ascending: true });
@@ -42,11 +38,7 @@ exports.obtenerCitas = async (req, res) => {
 // ==================================================
 exports.crearCita = async (req, res) => {
   try {
-    if (
-      !req.usuario ||
-      !req.usuario.id_usuario ||
-      !req.usuario.id_empresa
-    ) {
+    if (!req.usuario || !req.usuario.id_empresa) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
@@ -69,8 +61,7 @@ exports.crearCita = async (req, res) => {
     const { data, error } = await db
       .from("citas")
       .insert({
-        id_usuario: req.usuario.id_usuario,
-        id_empresa: req.usuario.id_empresa, // 🔐 CLAVE
+        id_empresa: req.usuario.id_empresa,
         id_cliente,
         titulo,
         fecha,
@@ -101,11 +92,7 @@ exports.crearCita = async (req, res) => {
 // ==================================================
 exports.actualizarCita = async (req, res) => {
   try {
-    if (
-      !req.usuario ||
-      !req.usuario.id_usuario ||
-      !req.usuario.id_empresa
-    ) {
+    if (!req.usuario || !req.usuario.id_empresa) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
@@ -113,7 +100,6 @@ exports.actualizarCita = async (req, res) => {
       .from("citas")
       .update(req.body)
       .eq("id_cita", req.params.id)
-      .eq("id_usuario", req.usuario.id_usuario)
       .eq("id_empresa", req.usuario.id_empresa)
       .select()
       .single();
@@ -139,11 +125,7 @@ exports.actualizarCita = async (req, res) => {
 // ==================================================
 exports.eliminarCita = async (req, res) => {
   try {
-    if (
-      !req.usuario ||
-      !req.usuario.id_usuario ||
-      !req.usuario.id_empresa
-    ) {
+    if (!req.usuario || !req.usuario.id_empresa) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
@@ -151,7 +133,6 @@ exports.eliminarCita = async (req, res) => {
       .from("citas")
       .delete()
       .eq("id_cita", req.params.id)
-      .eq("id_usuario", req.usuario.id_usuario)
       .eq("id_empresa", req.usuario.id_empresa);
 
     if (error) {
