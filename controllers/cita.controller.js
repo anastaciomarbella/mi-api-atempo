@@ -2,19 +2,26 @@ const Database = require("../config/db");
 const db = Database.getInstance().getClient();
 const Cita = require("../models/cita.model");
 
-// =========================
-// OBTENER CITAS (SOLO DEL USUARIO)
-// =========================
+// ==================================================
+// OBTENER CITAS (POR USUARIO + EMPRESA)
+// ==================================================
 exports.obtenerCitas = async (req, res) => {
   try {
-    if (!req.usuario || !req.usuario.id_usuario) {
+    if (
+      !req.usuario ||
+      !req.usuario.id_usuario ||
+      !req.usuario.id_empresa
+    ) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
+
+    const { id_usuario, id_empresa } = req.usuario;
 
     const { data, error } = await db
       .from("citas")
       .select("*")
-      .eq("id_usuario", req.usuario.id_usuario) // 🔐 FILTRO CLAVE
+      .eq("id_usuario", id_usuario)
+      .eq("id_empresa", id_empresa)
       .order("fecha", { ascending: true })
       .order("hora_inicio", { ascending: true });
 
@@ -30,17 +37,21 @@ exports.obtenerCitas = async (req, res) => {
   }
 };
 
-// =========================
-// CREAR CITA
-// =========================
+// ==================================================
+// CREAR CITA (EMPRESA AUTOMÁTICA)
+// ==================================================
 exports.crearCita = async (req, res) => {
   try {
-    if (!req.usuario || !req.usuario.id_usuario) {
+    if (
+      !req.usuario ||
+      !req.usuario.id_usuario ||
+      !req.usuario.id_empresa
+    ) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
     const {
-      id_cliente,        // 👈 CLIENTE DE LA CITA
+      id_cliente,
       titulo,
       fecha,
       hora_inicio,
@@ -58,7 +69,8 @@ exports.crearCita = async (req, res) => {
     const { data, error } = await db
       .from("citas")
       .insert({
-        id_usuario: req.usuario.id_usuario, // 🔐 DUEÑO DE LA CITA
+        id_usuario: req.usuario.id_usuario,
+        id_empresa: req.usuario.id_empresa, // 🔐 CLAVE
         id_cliente,
         titulo,
         fecha,
@@ -84,12 +96,16 @@ exports.crearCita = async (req, res) => {
   }
 };
 
-// =========================
-// ACTUALIZAR CITA (SOLO DEL USUARIO)
-// =========================
+// ==================================================
+// ACTUALIZAR CITA (PROTEGIDA POR EMPRESA)
+// ==================================================
 exports.actualizarCita = async (req, res) => {
   try {
-    if (!req.usuario || !req.usuario.id_usuario) {
+    if (
+      !req.usuario ||
+      !req.usuario.id_usuario ||
+      !req.usuario.id_empresa
+    ) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
@@ -97,7 +113,8 @@ exports.actualizarCita = async (req, res) => {
       .from("citas")
       .update(req.body)
       .eq("id_cita", req.params.id)
-      .eq("id_usuario", req.usuario.id_usuario) // 🔐 PROTECCIÓN
+      .eq("id_usuario", req.usuario.id_usuario)
+      .eq("id_empresa", req.usuario.id_empresa)
       .select()
       .single();
 
@@ -117,12 +134,16 @@ exports.actualizarCita = async (req, res) => {
   }
 };
 
-// =========================
-// ELIMINAR CITA (SOLO DEL USUARIO)
-// =========================
+// ==================================================
+// ELIMINAR CITA (PROTEGIDA POR EMPRESA)
+// ==================================================
 exports.eliminarCita = async (req, res) => {
   try {
-    if (!req.usuario || !req.usuario.id_usuario) {
+    if (
+      !req.usuario ||
+      !req.usuario.id_usuario ||
+      !req.usuario.id_empresa
+    ) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
@@ -130,7 +151,8 @@ exports.eliminarCita = async (req, res) => {
       .from("citas")
       .delete()
       .eq("id_cita", req.params.id)
-      .eq("id_usuario", req.usuario.id_usuario); // 🔐 PROTECCIÓN
+      .eq("id_usuario", req.usuario.id_usuario)
+      .eq("id_empresa", req.usuario.id_empresa);
 
     if (error) {
       console.error("Error Supabase:", error);
