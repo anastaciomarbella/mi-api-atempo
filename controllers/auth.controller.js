@@ -5,9 +5,15 @@ const Database = require("../config/db");
 const db = Database.getInstance();
 const JWT_SECRET = process.env.JWT_SECRET || "secreto123";
 
+function generarSlug(nombre, id) {
+  return nombre.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quita acentos
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') + '-' + id;
+}
 
 // ===========================================
-// REGISTRO (EMPRESA + USUARIO ADMIN)
+// REGISTRO
 // ===========================================
 exports.registrar = async (req, res) => {
   try {
@@ -23,7 +29,6 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: "Todos los campos son obligatorios" });
     }
 
-    // 1️⃣ verificar correo
     const { data: existente } = await db
       .from("usuarios")
       .select("id_usuario")
@@ -34,7 +39,7 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: "El correo ya está registrado" });
     }
 
-    // 2️⃣ crear empresa
+    // Crear empresa sin slug primero
     const { data: empresa, error: errorEmpresa } = await db
       .from("empresas")
       .insert([{ nombre_empresa: nombreEmpresa }])
@@ -45,7 +50,14 @@ exports.registrar = async (req, res) => {
       return res.status(500).json({ message: "Error al crear empresa" });
     }
 
-    // 3️⃣ subir logo (opcional)
+    // Generar slug único con id_empresa
+    const slug = generarSlug(nombreEmpresa, empresa.id_empresa);
+
+    await db.from("empresas")
+      .update({ slug })
+      .eq("id_empresa", empresa.id_empresa);
+
+    // Subir logo (opcional)
     let logoUrl = null;
     if (req.file) {
       const ext = req.file.originalname.split(".").pop().toLowerCase();
@@ -61,9 +73,7 @@ exports.registrar = async (req, res) => {
           upsert: true,
         });
 
-      if (error) {
-        return res.status(500).json({ message: "Error al subir logo" });
-      }
+      if (error) return res.status(500).json({ message: "Error al subir logo" });
 
       const { data } = supabase.storage.from("logotipo").getPublicUrl(filePath);
       logoUrl = data.publicUrl;
@@ -73,15 +83,13 @@ exports.registrar = async (req, res) => {
         .eq("id_empresa", empresa.id_empresa);
     }
 
-    // 4️⃣ crear usuario ADMIN
+    // Crear usuario admin
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data: usuario, error: errorUsuario } = await db
       .from("usuarios")
       .insert([{
-        nombre,
-        correo,
-        telefono,
+        nombre, correo, telefono,
         password: hashedPassword,
         rol: "admin",
         id_empresa: empresa.id_empresa
@@ -89,36 +97,26 @@ exports.registrar = async (req, res) => {
       .select("*")
       .single();
 
-   if (errorUsuario) {
-  console.error("ERROR USUARIO:", errorUsuario);
-  return res.status(500).json({ 
-    message: "Error al crear usuario",
-    error: errorUsuario
-  });
-}
+    if (errorUsuario) {
+      return res.status(500).json({ message: "Error al crear usuario", error: errorUsuario });
+    }
+
     delete usuario.password;
 
     res.status(201).json({
       message: "Registro exitoso",
       usuario,
-      empresa: {
-        ...empresa,
-        logo_url: logoUrl
-      }
+      empresa: { ...empresa, slug, logo_url: logoUrl }
     });
 
   } catch (err) {
-  console.error("ERROR REAL:", err);
-  res.status(500).json({
-    message: err.message,
-    stack: err.stack
-  });
-}
+    console.error("ERROR REAL:", err);
+    res.status(500).json({ message: err.message, stack: err.stack });
+  }
 };
 
-
 // ===========================================
-// LOGIN
+// LOGIN — incluye slug en la respuesta
 // ===========================================
 exports.login = async (req, res) => {
   try {
@@ -131,7 +129,6 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Correo y contraseña requeridos" });
     }
 
-    // 1️⃣ buscar usuario
     const { data: usuario } = await db
       .from("usuarios")
       .select("*")
@@ -142,31 +139,24 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // 2️⃣ validar password
     const valido = await bcrypt.compare(password, usuario.password);
     if (!valido) {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // 3️⃣ obtener empresa
+    // Obtener empresa CON slug
     const { data: empresa } = await db
       .from("empresas")
-      .select("nombre_empresa, logo_url")
+      .select("nombre_empresa, logo_url, slug")
       .eq("id_empresa", usuario.id_empresa)
       .maybeSingle();
 
-    // 4️⃣ token
     const token = jwt.sign(
-      {
-        id_usuario: usuario.id_usuario,
-        id_empresa: usuario.id_empresa,
-        rol: usuario.rol
-      },
+      { id_usuario: usuario.id_usuario, id_empresa: usuario.id_empresa, rol: usuario.rol },
       JWT_SECRET,
       { expiresIn: "8h" }
     );
 
-    // 5️⃣ respuesta
     res.json({
       message: "Login exitoso",
       token,
@@ -178,7 +168,8 @@ exports.login = async (req, res) => {
         rol: usuario.rol,
         id_empresa: usuario.id_empresa,
         nombre_empresa: empresa?.nombre_empresa || null,
-        logo_url: empresa?.logo_url || null
+        logo_url: empresa?.logo_url || null,
+        slug: empresa?.slug || null  // ← slug incluido
       }
     });
 

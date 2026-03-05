@@ -7,7 +7,7 @@ const Persona = require('../models/persona.model');
 // ========================
 exports.obtenerPersonas = async (req, res) => {
   try {
-    const id_empresa = req.user?.id_empresa;
+    const id_empresa = req.usuario?.id_empresa;
 
     if (!id_empresa) {
       return res.status(400).json({ error: 'No se encontró id_empresa en el token' });
@@ -53,7 +53,7 @@ exports.obtenerPersonaPorId = async (req, res) => {
 exports.crearPersona = async (req, res) => {
   try {
     const { nombre, email, telefono } = req.body;
-    const id_empresa = req.user?.id_empresa;
+    const id_empresa = req.usuario?.id_empresa;
 
     const camposFaltantes = [];
     if (!nombre) camposFaltantes.push('nombre');
