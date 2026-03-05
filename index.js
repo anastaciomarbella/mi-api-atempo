@@ -67,6 +67,7 @@ app.use('/api/citas', require('./routes/cita.routes'));
 app.use('/api/avisos', require('./routes/aviso.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/frecuentes', require('./routes/clientes.routes'));
+app.use('/api/cliente-auth', require('./routes/clienteAuth.routes'));
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
