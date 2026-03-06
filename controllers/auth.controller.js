@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "secreto123";
 
 function generarSlug(nombre, id) {
   return nombre.toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quita acentos
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') + '-' + id;
 }
@@ -39,7 +39,6 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: "El correo ya está registrado" });
     }
 
-    // Crear empresa sin slug primero
     const { data: empresa, error: errorEmpresa } = await db
       .from("empresas")
       .insert([{ nombre_empresa: nombreEmpresa }])
@@ -50,14 +49,12 @@ exports.registrar = async (req, res) => {
       return res.status(500).json({ message: "Error al crear empresa" });
     }
 
-    // Generar slug único con id_empresa
     const slug = generarSlug(nombreEmpresa, empresa.id_empresa);
 
     await db.from("empresas")
       .update({ slug })
       .eq("id_empresa", empresa.id_empresa);
 
-    // Subir logo (opcional)
     let logoUrl = null;
     if (req.file) {
       const ext = req.file.originalname.split(".").pop().toLowerCase();
@@ -83,7 +80,6 @@ exports.registrar = async (req, res) => {
         .eq("id_empresa", empresa.id_empresa);
     }
 
-    // Crear usuario admin
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data: usuario, error: errorUsuario } = await db
@@ -116,7 +112,7 @@ exports.registrar = async (req, res) => {
 };
 
 // ===========================================
-// LOGIN — incluye slug en la respuesta
+// LOGIN
 // ===========================================
 exports.login = async (req, res) => {
   try {
@@ -144,7 +140,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
-    // Obtener empresa CON slug
     const { data: empresa } = await db
       .from("empresas")
       .select("nombre_empresa, logo_url, slug")
@@ -169,12 +164,51 @@ exports.login = async (req, res) => {
         id_empresa: usuario.id_empresa,
         nombre_empresa: empresa?.nombre_empresa || null,
         logo_url: empresa?.logo_url || null,
-        slug: empresa?.slug || null  // ← slug incluido
+        slug: empresa?.slug || null
       }
     });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ===========================================
+// ACTUALIZAR USUARIO ← NUEVO
+// ===========================================
+exports.actualizarUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que solo el propio usuario puede editarse
+    if (parseInt(id) !== req.usuario.id_usuario) {
+      return res.status(403).json({ mensaje: "No autorizado" });
+    }
+
+    const { nombre, telefono } = req.body;
+
+    if (!nombre && !telefono) {
+      return res.status(400).json({ mensaje: "No se enviaron datos para actualizar" });
+    }
+
+    const campos = {};
+    if (nombre)   campos.nombre   = nombre.trim();
+    if (telefono) campos.telefono = telefono.trim();
+
+    const { data, error } = await db
+      .from("usuarios")
+      .update(campos)
+      .eq("id_usuario", id)
+      .select("id_usuario, nombre, correo, telefono, rol, id_empresa")
+      .single();
+
+    if (error) return res.status(500).json({ mensaje: "Error al actualizar", error });
+
+    res.json({ ok: true, ...data });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: "Error interno del servidor" });
   }
 };

@@ -20,4 +20,7 @@ router.get('/admin', verificarToken, verificarRol("admin"), (req, res) => {
   });
 });
 
+// ✅ NUEVA - Actualizar nombre y teléfono del usuario
+router.put('/usuarios/:id', verificarToken, authController.actualizarUsuario);
+
 module.exports = router;
