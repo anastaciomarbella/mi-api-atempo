@@ -48,8 +48,7 @@ exports.getById = async (req, res) => {
   const { data, error } = await req.supabase
     .from('empresas')
     .select('*')
-    .eq('id', id)
-    .single();
+    .eq('id_empresa', id); // ✅ PK correcta
 
   console.log('✅ Data:', data);
   console.log('❌ Error:', error);
@@ -68,7 +67,11 @@ exports.update = async (req, res) => {
   console.log('📥 req.body:', req.body);
   console.log('📁 req.file:', req.file);
 
-  const campos = { ...req.body };
+  // ✅ Solo campos que existen en la tabla empresas
+  const campos = {};
+
+  if (req.body.nombre_empresa) campos.nombre_empresa = req.body.nombre_empresa;
+  if (req.body.slug)           campos.slug           = req.body.slug;
 
   if (req.file) {
     campos.logo_url = `${process.env.BASE_URL || 'https://mi-api-atempo.onrender.com'}/uploads/logos/${req.file.filename}`;
@@ -78,14 +81,14 @@ exports.update = async (req, res) => {
   console.log('📝 Campos finales a actualizar:', campos);
 
   if (Object.keys(campos).length === 0) {
-    console.log('⚠️ No se enviaron campos');
+    console.log('⚠️ No se enviaron campos válidos');
     return res.status(400).json({ ok: false, mensaje: 'No se enviaron datos para actualizar' });
   }
 
   const { data, error } = await req.supabase
     .from('empresas')
     .update(campos)
-    .eq('id', id)
+    .eq('id_empresa', id) // ✅ PK correcta
     .select()
     .single();
 
@@ -126,7 +129,7 @@ exports.delete = async (req, res) => {
   const { error } = await req.supabase
     .from('empresas')
     .delete()
-    .eq('id', id);
+    .eq('id_empresa', id); // ✅ PK correcta
 
   console.log('❌ Error:', error);
 
