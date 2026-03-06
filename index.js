@@ -23,7 +23,7 @@ app.use(express.json());
 // CORS (producción + desarrollo)
 app.use(cors({
   origin: [
-    'https://atempo-react.onrender.com',
+     "https://citalia.onrender.com",
     'http://localhost:5173',
     'http://localhost:3000'
   ],
