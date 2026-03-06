@@ -17,32 +17,25 @@ exports.obtenerEmpresa = async (req, res) => {
       .single();
 
     if (error || !empresa) {
-      return res.status(404).json({
-        error: 'Empresa no encontrada'
-      });
+      return res.status(404).json({ error: 'Empresa no encontrada' });
     }
 
     res.json(empresa);
 
   } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
+    res.status(500).json({ error: err.message });
   }
 };
-
 
 
 // ========================
 // GET empleados por slug
 // ========================
 exports.obtenerPersonas = async (req, res) => {
-
   try {
 
     const { slug } = req.params;
 
-    // buscar empresa
     const { data: empresa, error: errorEmpresa } = await db
       .from('empresas')
       .select('id_empresa')
@@ -50,45 +43,78 @@ exports.obtenerPersonas = async (req, res) => {
       .single();
 
     if (errorEmpresa || !empresa) {
-      return res.status(404).json({
-        error: 'Empresa no encontrada'
-      });
+      return res.status(404).json({ error: 'Empresa no encontrada' });
     }
 
-    // obtener empleados de la empresa
     const { data: personas, error } = await db
       .from('personas')
-      .select('id_persona, nombre')
+      .select('id_persona, nombre, especialidad')
       .eq('id_empresa', empresa.id_empresa)
-      .eq('rol', 'empleado'); // 👈 SOLO empleados
+      .eq('rol', 'empleado');
 
     if (error) {
-      return res.status(500).json({
-        error: error.message
-      });
+      return res.status(500).json({ error: error.message });
     }
 
     res.json(personas);
 
   } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
+    res.status(500).json({ error: err.message });
   }
 };
 
+
+// ========================
+// GET citas ocupadas de una persona en una fecha
+// Query params: ?id_persona=X&fecha=YYYY-MM-DD
+// ========================
+exports.obtenerCitasOcupadas = async (req, res) => {
+  try {
+
+    const { slug } = req.params;
+    const { id_persona, fecha } = req.query;
+
+    if (!id_persona || !fecha) {
+      return res.status(400).json({ error: 'Faltan parámetros id_persona y fecha' });
+    }
+
+    const { data: empresa, error: errorEmpresa } = await db
+      .from('empresas')
+      .select('id_empresa')
+      .eq('slug', slug)
+      .single();
+
+    if (errorEmpresa || !empresa) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+
+    const { data: citas, error } = await db
+      .from('citas')
+      .select('hora_inicio, hora_final')
+      .eq('id_empresa', empresa.id_empresa)
+      .eq('id_cliente', id_persona)  // columna real en tu tabla citas
+      .eq('fecha', fecha);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(citas || []);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 
 // ========================
 // POST crear cita pública
 // ========================
 exports.crearCitaPublica = async (req, res) => {
-
   try {
 
     const { slug } = req.params;
 
-    // buscar empresa
     const { data: empresa, error: errorEmpresa } = await db
       .from('empresas')
       .select('id_empresa')
@@ -96,13 +122,11 @@ exports.crearCitaPublica = async (req, res) => {
       .single();
 
     if (errorEmpresa || !empresa) {
-      return res.status(404).json({
-        error: 'Empresa no encontrada'
-      });
+      return res.status(404).json({ error: 'Empresa no encontrada' });
     }
 
     const {
-      id_empleado,
+      id_persona,       // viene del frontend como id_persona
       titulo,
       fecha,
       hora_inicio,
@@ -113,29 +137,22 @@ exports.crearCitaPublica = async (req, res) => {
       color
     } = req.body;
 
-    // validar datos
-    if (
-      !id_empleado ||
-      !titulo ||
-      !fecha ||
-      !hora_inicio ||
-      !hora_final ||
-      !nombre_cliente
-    ) {
-      return res.status(400).json({
-        error: 'Datos incompletos'
-      });
+    // Validar campos obligatorios
+    if (!id_persona || !titulo || !fecha || !hora_inicio || !hora_final || !nombre_cliente) {
+      return res.status(400).json({ error: 'Datos incompletos' });
     }
 
-    // ========================
-    // verificar conflicto
-    // ========================
+    // Validar que hora_final > hora_inicio
+    if (hora_final <= hora_inicio) {
+      return res.status(400).json({ error: 'La hora de fin debe ser mayor a la hora de inicio' });
+    }
 
+    // Verificar conflicto de horario
     const { data: citasExistentes } = await db
       .from('citas')
       .select('hora_inicio, hora_final')
       .eq('id_empresa', empresa.id_empresa)
-      .eq('id_empleado', id_empleado)
+      .eq('id_cliente', id_persona)   // columna real en tu tabla citas
       .eq('fecha', fecha);
 
     const hayConflicto = citasExistentes?.some(c =>
@@ -144,19 +161,16 @@ exports.crearCitaPublica = async (req, res) => {
 
     if (hayConflicto) {
       return res.status(409).json({
-        error: 'El empleado ya tiene una cita en ese horario'
+        error: 'El encargado ya tiene una cita en ese horario. Por favor elige otro horario.'
       });
     }
 
-    // ========================
-    // crear cita
-    // ========================
-
+    // Crear cita
     const { data, error } = await db
       .from('citas')
       .insert({
         id_empresa: empresa.id_empresa,
-        id_empleado,
+        id_cliente: id_persona,        // columna real en tu tabla citas
         titulo,
         fecha,
         hora_inicio,
@@ -170,16 +184,12 @@ exports.crearCitaPublica = async (req, res) => {
       .single();
 
     if (error) {
-      return res.status(500).json({
-        error: error.message
-      });
+      return res.status(500).json({ error: error.message });
     }
 
     res.status(201).json(data);
 
   } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
+    res.status(500).json({ error: err.message });
   }
 };
