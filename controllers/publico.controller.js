@@ -48,7 +48,7 @@ exports.obtenerPersonas = async (req, res) => {
 
     const { data: personas, error } = await db
       .from('personas')
-      .select('id_persona, nombre, especialidad')
+      .select('id_persona, nombre')
       .eq('id_empresa', empresa.id_empresa)
       .eq('rol', 'empleado');
 
