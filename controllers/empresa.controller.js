@@ -1,39 +1,66 @@
-const pool = require('../config/db');
+// ==============================
+// CONTROLADOR DE EMPRESAS
+// ==============================
 
 exports.getAll = async (req, res) => {
-  const result = await pool.query('SELECT * FROM empresas');
-  res.json(result.rows);
+  const { data, error } = await req.supabase
+    .from('empresas')
+    .select('*');
+
+  if (error) return res.status(500).json({ ok: false, error });
+  res.json({ ok: true, data });
 };
 
 exports.getById = async (req, res) => {
   const { id } = req.params;
-  const result = await pool.query('SELECT * FROM empresas WHERE id = $1', [id]);
-  if (result.rows.length === 0) return res.status(404).json({ mensaje: 'No encontrado' });
-  res.json(result.rows[0]);
+
+  const { data, error } = await req.supabase
+    .from('empresas')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) return res.status(404).json({ ok: false, mensaje: 'No encontrado', error });
+  res.json({ ok: true, data });
 };
 
 exports.update = async (req, res) => {
   const { id } = req.params;
-  const { nombre, direccion, telefono } = req.body; // ajusta los campos a tu tabla
-  const result = await pool.query(
-    'UPDATE empresas SET nombre=$1, direccion=$2, telefono=$3 WHERE id=$4 RETURNING *',
-    [nombre, direccion, telefono, id]
-  );
-  if (result.rows.length === 0) return res.status(404).json({ mensaje: 'No encontrado' });
-  res.json(result.rows[0]);
+
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return res.status(400).json({ ok: false, mensaje: 'No se enviaron datos para actualizar' });
+  }
+
+  const { data, error } = await req.supabase
+    .from('empresas')
+    .update(req.body)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ ok: false, error });
+  res.json({ ok: true, data });
 };
 
 exports.create = async (req, res) => {
-  const { nombre, direccion, telefono } = req.body;
-  const result = await pool.query(
-    'INSERT INTO empresas (nombre, direccion, telefono) VALUES ($1, $2, $3) RETURNING *',
-    [nombre, direccion, telefono]
-  );
-  res.status(201).json(result.rows[0]);
+  const { data, error } = await req.supabase
+    .from('empresas')
+    .insert([req.body])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ ok: false, error });
+  res.status(201).json({ ok: true, data });
 };
 
 exports.delete = async (req, res) => {
   const { id } = req.params;
-  await pool.query('DELETE FROM empresas WHERE id = $1', [id]);
-  res.json({ mensaje: 'Eliminado correctamente' });
+
+  const { error } = await req.supabase
+    .from('empresas')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ ok: false, error });
+  res.json({ ok: true, mensaje: 'Eliminado correctamente' });
 };
