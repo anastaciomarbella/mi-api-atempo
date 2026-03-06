@@ -62,16 +62,14 @@ app.get('/api/test', (req, res) => {
 // ==============================
 // RUTAS DEL SISTEMA
 // ==============================
-app.use('/api/personas', require('./routes/persona.routes'));
-app.use('/api/citas', require('./routes/cita.routes'));
-app.use('/api/avisos', require('./routes/aviso.routes'));
-app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/frecuentes', require('./routes/clientes.routes'));
-app.use('/api/cliente-auth', require('./routes/clienteAuth.routes'));
-
-// 🔴 ESTA ES LA QUE TE FALTABA
-app.use('/api/publico', require('./routes/publico.routes'));
-
+app.use('/api/personas',      require('./routes/persona.routes'));
+app.use('/api/citas',         require('./routes/cita.routes'));
+app.use('/api/avisos',        require('./routes/aviso.routes'));
+app.use('/api/auth',          require('./routes/auth.routes'));
+app.use('/api/frecuentes',    require('./routes/clientes.routes'));
+app.use('/api/cliente-auth',  require('./routes/clienteAuth.routes'));
+app.use('/api/publico',       require('./routes/publico.routes'));
+app.use('/api/empresas',      require('./routes/empresa.routes')); // ✅ NUEVA
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
