@@ -30,7 +30,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Archivos estáticos (si usas uploads locales)
+// Archivos estáticos (uploads)
 app.use('/uploads', express.static('uploads'));
 
 // Adjuntar cliente Supabase a cada request
@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 });
 
 // ==============================
-// RUTA RAÍZ (EVITA Cannot GET /)
+// RUTA RAÍZ
 // ==============================
 app.get('/', (req, res) => {
   res.json({
@@ -50,7 +50,7 @@ app.get('/', (req, res) => {
 });
 
 // ==============================
-// RUTA DE PRUEBA
+// RUTA TEST
 // ==============================
 app.get('/api/test', (req, res) => {
   res.json({
@@ -68,6 +68,10 @@ app.use('/api/avisos', require('./routes/aviso.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/frecuentes', require('./routes/clientes.routes'));
 app.use('/api/cliente-auth', require('./routes/clienteAuth.routes'));
+
+// 🔴 ESTA ES LA QUE TE FALTABA
+app.use('/api/publico', require('./routes/publico.routes'));
+
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
