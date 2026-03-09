@@ -8,6 +8,8 @@ const debug = require('debug')('app:server');
 
 const Database = require('./config/db');
 const { generarAvisos } = require('./utils/notificador');
+const pushRoutes = require("./push.routes");
+
 
 // ==============================
 // Inicialización
@@ -70,6 +72,7 @@ app.use('/api/frecuentes',    require('./routes/clientes.routes'));
 app.use('/api/cliente-auth',  require('./routes/clienteAuth.routes'));
 app.use('/api/publico',       require('./routes/publico.routes'));
 app.use('/api/empresas',      require('./routes/empresa.routes')); // ✅ NUEVA
+app.use("/api/push", pushRoutes);
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
