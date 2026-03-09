@@ -15,7 +15,6 @@ exports.registrarCliente = async (req, res) => {
     if (!nombre || !telefono || !password || !slug)
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
 
-    // Buscar empresa por slug
     const { data: empresa, error: errorEmpresa } = await db
       .from('empresas')
       .select('id_empresa, nombre_empresa, logo_url, slug')
@@ -25,7 +24,6 @@ exports.registrarCliente = async (req, res) => {
     if (errorEmpresa || !empresa)
       return res.status(404).json({ error: 'Empresa no encontrada' });
 
-    // Verificar si ya existe el teléfono en esta empresa
     const { data: existente } = await db
       .from('clientes')
       .select('id_cliente')
@@ -143,17 +141,44 @@ exports.obtenerMisCitas = async (req, res) => {
       .from('citas')
       .select('*')
       .eq('id_empresa', id_empresa)
+      .eq('id_cliente_registro', id_cliente) // 👈 CORREGIDO
       .order('fecha', { ascending: true })
       .order('hora_inicio', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
 
-    // Filtrar citas donde nombre_cliente coincide o id_cliente coincide
-    const misCitas = data.filter(c =>
-      c.id_cliente === id_cliente || c.numero_cliente === req.clienteAuth.telefono
-    );
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    res.json(misCitas);
+// ========================
+// CANCELAR CITA
+// ========================
+exports.cancelarCita = async (req, res) => {
+  try {
+    const { id_cita } = req.params;
+    const { id_cliente } = req.clienteAuth;
+
+    const { data: cita, error: errorBuscar } = await db
+      .from('citas')
+      .select('*')
+      .eq('id_cita', id_cita)
+      .eq('id_cliente_registro', id_cliente)
+      .single();
+
+    if (errorBuscar || !cita)
+      return res.status(404).json({ error: 'Cita no encontrada o no tienes permiso' });
+
+    const { error } = await db
+      .from('citas')
+      .delete()
+      .eq('id_cita', id_cita);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ message: 'Cita cancelada correctamente' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
