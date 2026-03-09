@@ -183,3 +183,37 @@ exports.cancelarCita = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// ========================
+// EDITAR CITA DEL CLIENTE
+// ========================
+exports.editarCita = async (req, res) => {
+  try {
+    const { id_cita } = req.params;
+    const { id_cliente } = req.clienteAuth;
+
+    const { data: cita, error: errorBuscar } = await db
+      .from('citas')
+      .select('*')
+      .eq('id_cita', id_cita)
+      .eq('id_cliente_registro', id_cliente)
+      .single();
+
+    if (errorBuscar || !cita)
+      return res.status(404).json({ error: 'Cita no encontrada o no tienes permiso' });
+
+    const { id_persona, titulo, fecha, hora_inicio, hora_final, nombre_cliente, numero_cliente, motivo, color } = req.body;
+
+    const { data, error } = await db
+      .from('citas')
+      .update({ id_cliente: id_persona, titulo, fecha, hora_inicio, hora_final, nombre_cliente, numero_cliente, motivo, color })
+      .eq('id_cita', id_cita)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
