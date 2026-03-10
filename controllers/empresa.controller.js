@@ -1,39 +1,54 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer  = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 
-// ==============================
-// Configuración de multer
-// ==============================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/logos';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `empresa-${req.params.id}-${Date.now()}${ext}`);
+// ── Cliente Supabase con service role (para Storage) ─────────────────────────
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY  // necesita service_role, no anon
+);
+
+// ── Multer en memoria (NO disco — Render no persiste archivos) ────────────────
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máximo
+  fileFilter: (req, file, cb) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes JPG, PNG o WebP'));
+    }
   }
 });
 
-const upload = multer({ storage });
-
 exports.uploadLogo = upload.single('logo');
+
+// ── Helper: subir buffer a Supabase Storage ───────────────────────────────────
+async function subirLogoASupabase(idEmpresa, file) {
+  const ext      = file.originalname.split('.').pop().toLowerCase();
+  const filePath = `${idEmpresa}/logo.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('logotipo')                    // nombre de tu bucket
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: true,                      // sobreescribe si ya existe
+    });
+
+  if (error) throw new Error(`Error Supabase Storage: ${error.message}`);
+
+  const { data } = supabase.storage
+    .from('logotipo')
+    .getPublicUrl(filePath);
+
+  // Añadir cache-buster para que el navegador no muestre la versión anterior
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
 
 // ==============================
 // GET ALL
 // ==============================
 exports.getAll = async (req, res) => {
-  console.log('📋 GET /empresas - obteniendo todas');
-
-  const { data, error } = await req.supabase
-    .from('empresas')
-    .select('*');
-
-  console.log('✅ Data:', data);
-  console.log('❌ Error:', error);
-
+  const { data, error } = await req.supabase.from('empresas').select('*');
   if (error) return res.status(500).json({ ok: false, error });
   res.json({ ok: true, data });
 };
@@ -43,59 +58,49 @@ exports.getAll = async (req, res) => {
 // ==============================
 exports.getById = async (req, res) => {
   const { id } = req.params;
-  console.log(`🔍 GET /empresas/${id}`);
-
   const { data, error } = await req.supabase
     .from('empresas')
     .select('*')
-    .eq('id_empresa', id); // ✅ PK correcta
-
-  console.log('✅ Data:', data);
-  console.log('❌ Error:', error);
-
+    .eq('id_empresa', id);
   if (error) return res.status(404).json({ ok: false, mensaje: 'No encontrado', error });
   res.json({ ok: true, data });
 };
 
 // ==============================
-// UPDATE
+// UPDATE  ← logo ahora va a Supabase Storage
 // ==============================
 exports.update = async (req, res) => {
   const { id } = req.params;
 
-  console.log(`✏️ PUT /empresas/${id}`);
-  console.log('📥 req.body:', req.body);
-  console.log('📁 req.file:', req.file);
-
-  // ✅ Solo campos que existen en la tabla empresas
   const campos = {};
 
   if (req.body.nombre_empresa) campos.nombre_empresa = req.body.nombre_empresa;
   if (req.body.slug)           campos.slug           = req.body.slug;
 
+  // Si viene un archivo, subirlo a Supabase Storage
   if (req.file) {
-    campos.logo_url = `${process.env.BASE_URL || 'https://mi-api-atempo.onrender.com'}/uploads/logos/${req.file.filename}`;
-    console.log('🖼️ Logo URL generada:', campos.logo_url);
+    try {
+      campos.logo_url = await subirLogoASupabase(id, req.file);
+      console.log('🖼️ Logo subido a Supabase:', campos.logo_url);
+    } catch (err) {
+      console.error('❌ Error subiendo logo:', err.message);
+      return res.status(500).json({ ok: false, mensaje: err.message });
+    }
   }
 
-  console.log('📝 Campos finales a actualizar:', campos);
-
   if (Object.keys(campos).length === 0) {
-    console.log('⚠️ No se enviaron campos válidos');
     return res.status(400).json({ ok: false, mensaje: 'No se enviaron datos para actualizar' });
   }
 
   const { data, error } = await req.supabase
     .from('empresas')
     .update(campos)
-    .eq('id_empresa', id) // ✅ PK correcta
+    .eq('id_empresa', id)
     .select()
     .single();
 
-  console.log('✅ Data Supabase:', data);
-  console.log('❌ Error Supabase:', error);
-
   if (error) return res.status(500).json({ ok: false, error });
+
   res.json({ ok: true, ...data });
 };
 
@@ -103,18 +108,11 @@ exports.update = async (req, res) => {
 // CREATE
 // ==============================
 exports.create = async (req, res) => {
-  console.log('➕ POST /empresas');
-  console.log('📥 req.body:', req.body);
-
   const { data, error } = await req.supabase
     .from('empresas')
     .insert([req.body])
     .select()
     .single();
-
-  console.log('✅ Data:', data);
-  console.log('❌ Error:', error);
-
   if (error) return res.status(500).json({ ok: false, error });
   res.status(201).json({ ok: true, data });
 };
@@ -124,15 +122,10 @@ exports.create = async (req, res) => {
 // ==============================
 exports.delete = async (req, res) => {
   const { id } = req.params;
-  console.log(`🗑️ DELETE /empresas/${id}`);
-
   const { error } = await req.supabase
     .from('empresas')
     .delete()
-    .eq('id_empresa', id); // ✅ PK correcta
-
-  console.log('❌ Error:', error);
-
+    .eq('id_empresa', id);
   if (error) return res.status(500).json({ ok: false, error });
   res.json({ ok: true, mensaje: 'Eliminado correctamente' });
 };
