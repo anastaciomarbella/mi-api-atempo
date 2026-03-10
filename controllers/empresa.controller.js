@@ -28,7 +28,7 @@ async function subirLogoASupabase(idEmpresa, file) {
   const filePath = `${idEmpresa}/logo.${ext}`;
 
   const { error } = await supabase.storage
-    .from('logotipo')                    // nombre de tu bucket
+    .from('logo')                    // nombre de tu bucket
     .upload(filePath, file.buffer, {
       contentType: file.mimetype,
       upsert: true,                      // sobreescribe si ya existe
