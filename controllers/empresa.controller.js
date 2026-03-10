@@ -37,7 +37,7 @@ async function subirLogoASupabase(idEmpresa, file) {
   if (error) throw new Error(`Error Supabase Storage: ${error.message}`);
 
   const { data } = supabase.storage
-    .from('logotipo')
+    .from('logo')
     .getPublicUrl(filePath);
 
   // Añadir cache-buster para que el navegador no muestre la versión anterior
