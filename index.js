@@ -9,6 +9,7 @@ const debug = require('debug')('app:server');
 const Database = require('./config/db');
 const { generarAvisos } = require('./utils/notificador');
 const pushRoutes = require("./routes/push.routes");
+const servicioRoutes = require("./routes/Servicio.routes");
 
 
 // ==============================
@@ -73,6 +74,7 @@ app.use('/api/cliente-auth',  require('./routes/clienteAuth.routes'));
 app.use('/api/publico',       require('./routes/publico.routes'));
 app.use('/api/empresas',      require('./routes/empresa.routes')); // ✅ NUEVA
 app.use("/api/push",          require ('./routes/push.routes'));
+ app.use("/api/servicios",    require  ("./routes/Servicio.routes"));
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
