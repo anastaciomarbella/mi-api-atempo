@@ -53,28 +53,50 @@ const obtenerServicios = async (req, res) => {
 
 const crearServicio = async (req, res) => {
   try {
+    console.log("[crearServicio] req.usuario:", req.usuario);
+    console.log("[crearServicio] req.body:", req.body);
+    console.log("[crearServicio] req.file:", req.file ? req.file.originalname : "sin imagen");
+
     if (!req.usuario?.id_empresa)
       return res.status(401).json({ error: "Usuario no autenticado" });
+
     const { nombre, descripcion, precio, duracion } = req.body;
+
     if (!nombre || !precio)
       return res.status(400).json({ error: "Nombre y precio son obligatorios" });
+
     let imagen_url = null;
-    if (req.file) imagen_url = await subirImagen(req.file, req.usuario.id_empresa);
+    if (req.file) {
+      console.log("[crearServicio] Subiendo imagen...");
+      imagen_url = await subirImagen(req.file, req.usuario.id_empresa);
+      console.log("[crearServicio] imagen_url:", imagen_url);
+    }
+
+    const insertPayload = {
+      id_empresa:  req.usuario.id_empresa,
+      nombre,
+      descripcion: descripcion || null,
+      precio:      parseFloat(precio),
+      duracion:    duracion ? parseInt(duracion) : null,
+      imagen_url,
+    };
+    console.log("[crearServicio] insertPayload:", insertPayload);
+
     const { data, error } = await db
       .from("servicios")
-      .insert({
-        id_empresa: req.usuario.id_empresa,
-        nombre,
-        descripcion: descripcion || null,
-        precio: parseFloat(precio),
-        duracion: duracion ? parseInt(duracion) : null,
-        imagen_url,
-      })
+      .insert(insertPayload)
       .select()
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+
+    if (error) {
+      console.error("[crearServicio] Supabase error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    console.log("[crearServicio] Servicio creado:", data);
     res.status(201).json(Servicio(data));
   } catch (err) {
+    console.error("[crearServicio] catch error:", err);
     res.status(500).json({ error: err.message || "Error interno del servidor" });
   }
 };
@@ -100,14 +122,14 @@ const actualizarServicio = async (req, res) => {
     const { data, error } = await db
       .from("servicios")
       .update({
-        nombre: nombre || servicioActual.nombre,
+        nombre:      nombre      || servicioActual.nombre,
         descripcion: descripcion ?? servicioActual.descripcion,
-        precio: precio ? parseFloat(precio) : servicioActual.precio,
-        duracion: duracion ? parseInt(duracion) : servicioActual.duracion,
+        precio:      precio      ? parseFloat(precio) : servicioActual.precio,
+        duracion:    duracion    ? parseInt(duracion)  : servicioActual.duracion,
         imagen_url,
       })
       .eq("id_servicio", req.params.id)
-      .eq("id_empresa", req.usuario.id_empresa)
+      .eq("id_empresa",  req.usuario.id_empresa)
       .select()
       .single();
     if (error) return res.status(500).json({ error: error.message });
@@ -125,7 +147,7 @@ const eliminarServicio = async (req, res) => {
       .from("servicios")
       .select("*")
       .eq("id_servicio", req.params.id)
-      .eq("id_empresa", req.usuario.id_empresa)
+      .eq("id_empresa",  req.usuario.id_empresa)
       .single();
     if (errorBuscar || !servicioActual)
       return res.status(404).json({ error: "Servicio no encontrado" });
@@ -134,7 +156,7 @@ const eliminarServicio = async (req, res) => {
       .from("servicios")
       .delete()
       .eq("id_servicio", req.params.id)
-      .eq("id_empresa", req.usuario.id_empresa);
+      .eq("id_empresa",  req.usuario.id_empresa);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ message: "Servicio eliminado correctamente" });
   } catch (err) {
