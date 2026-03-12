@@ -54,6 +54,36 @@ exports.obtenerPersonas = async (req, res) => {
 };
 
 // ========================
+// GET servicios públicos por slug
+// ========================
+exports.obtenerServiciosPublicos = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const { data: empresa, error: errorEmpresa } = await db
+      .from('empresas')
+      .select('id_empresa')
+      .eq('slug', slug)
+      .single();
+
+    if (errorEmpresa || !empresa)
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+
+    const { data: servicios, error } = await db
+      .from('servicios')
+      .select('id_servicio, nombre, descripcion, precio, duracion, imagen_url')
+      .eq('id_empresa', empresa.id_empresa)
+      .order('created_at', { ascending: true });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json(servicios || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ========================
 // GET citas ocupadas de una persona en una fecha
 // ========================
 exports.obtenerCitasOcupadas = async (req, res) => {
@@ -106,7 +136,7 @@ exports.crearCitaPublica = async (req, res) => {
 
     const {
       id_persona,
-      id_cliente_registro, // 👈 AGREGADO
+      id_cliente_registro,
       titulo,
       fecha,
       hora_inicio,
@@ -142,9 +172,9 @@ exports.crearCitaPublica = async (req, res) => {
     const { data, error } = await db
       .from('citas')
       .insert({
-        id_empresa: empresa.id_empresa,
-        id_cliente: id_persona,
-        id_cliente_registro: id_cliente_registro || null, // 👈 AGREGADO
+        id_empresa:          empresa.id_empresa,
+        id_cliente:          id_persona,
+        id_cliente_registro: id_cliente_registro || null,
         titulo,
         fecha,
         hora_inicio,
