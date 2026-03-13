@@ -1,9 +1,9 @@
 const express = require("express");
-const router  = express.Router();
-const { obtenerEstadisticas } = require("../controllers/estadisticas.controller");
-const authMiddleware = require("../midlewares/authMiddleware"); // mismo middleware que usas en cita.routes.js
+const router = express.Router();
 
-// GET /api/estadisticas?periodo=dia|semana|mes
-router.get("/", authMiddleware, obtenerEstadisticas);
+const { obtenerEstadisticas } = require("../controllers/estadisticas.controller");
+const { verificarToken } = require("../midlewares/authMiddleware");
+
+router.get("/", verificarToken, obtenerEstadisticas);
 
 module.exports = router;
