@@ -75,6 +75,7 @@ app.use('/api/publico',       require('./routes/publico.routes'));
 app.use('/api/empresas',      require('./routes/empresa.routes')); // ✅ NUEVA
 app.use("/api/push",          require ('./routes/push.routes'));
  app.use("/api/servicios",    require  ("./routes/Servicio.routes"));
+ app.use('/api/estadisticas', require('./routes/estadisticas.routes'));
 
 // ==============================
 // MANEJO DE RUTAS NO EXISTENTES
