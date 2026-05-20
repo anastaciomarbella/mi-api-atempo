@@ -2,30 +2,16 @@ const express = require("express");
 const webpush = require("web-push");
 const router = express.Router();
 
-// ── Configurar VAPID ──
+
 webpush.setVapidDetails(
   process.env.VAPID_EMAIL,
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
-
-// ── Almacén en memoria (reemplaza con tu DB en producción) ──
-// Estructura: { userId: [subscription, ...] }
 const suscripciones = new Map();
-
-/* ─────────────────────────────────────────
-   Helper: obtener userId desde tu JWT/sesión
-   Ajusta según cómo manejes auth en tu app
-───────────────────────────────────────── */
 function getUserId(req) {
-  // Ejemplo con JWT decodificado por middleware previo:
   return req.user?.id || req.user?.userId || null;
 }
-
-/* ─────────────────────────────────────────
-   POST /api/push/suscribir
-   Guarda la suscripción del navegador
-───────────────────────────────────────── */
 router.post("/suscribir", (req, res) => {
   const userId = getUserId(req);
   if (!userId) return res.status(401).json({ error: "No autorizado" });
@@ -34,8 +20,6 @@ router.post("/suscribir", (req, res) => {
   if (!subscription?.endpoint) {
     return res.status(400).json({ error: "Suscripción inválida" });
   }
-
-  // Guardar (evitar duplicados por endpoint)
   const lista = suscripciones.get(userId) || [];
   const existe = lista.some((s) => s.endpoint === subscription.endpoint);
   if (!existe) {

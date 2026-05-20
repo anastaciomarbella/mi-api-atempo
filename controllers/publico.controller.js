@@ -1,9 +1,6 @@
 const Database = require('../config/db');
 const db = Database.getInstance().getClient();
 
-// ========================
-// GET info empresa por slug
-// ========================
 exports.obtenerEmpresa = async (req, res) => {
   try {
     const { slug } = req.params;
@@ -22,10 +19,6 @@ exports.obtenerEmpresa = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// ========================
-// GET empleados por slug
-// ========================
 exports.obtenerPersonas = async (req, res) => {
   try {
     const { slug } = req.params;
@@ -52,10 +45,6 @@ exports.obtenerPersonas = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// ========================
-// GET servicios públicos por slug
-// ========================
 exports.obtenerServiciosPublicos = async (req, res) => {
   try {
     const { slug } = req.params;

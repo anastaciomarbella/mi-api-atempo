@@ -45,6 +45,8 @@ exports.registrar = async (req, res) => {
       .select("id_empresa, nombre_empresa")
       .single();
 
+      console.log("Conectando a DB...");
+
     if (errorEmpresa) {
       return res.status(500).json({ message: "Error al crear empresa" });
     }
