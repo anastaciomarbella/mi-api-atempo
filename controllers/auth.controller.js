@@ -29,24 +29,25 @@ exports.registrar = async (req, res) => {
       return res.status(400).json({ message: "Todos los campos son obligatorios" });
     }
 
-  console.log("BODY:", req.body);
+    const { data: existente } = await db
+      .from("usuarios")
+      .select("id_usuario")
+      .eq("correo", correo)
+      .maybeSingle();
 
-const { data: empresa, error: errorEmpresa } = await db
-  .from("empresas")
-  .insert([{ nombre_empresa: nombreEmpresa }])
-  .select("id_empresa, nombre_empresa")
-  .single();
+    if (existente) {
+      return res.status(400).json({ message: "El correo ya está registrado" });
+    }
 
-console.log("EMPRESA:", empresa);
-console.log("ERROR EMPRESA:", errorEmpresa);
+    const { data: empresa, error: errorEmpresa } = await db
+      .from("empresas")
+      .insert([{ nombre_empresa: nombreEmpresa }])
+      .select("id_empresa, nombre_empresa")
+      .single();
 
-if (errorEmpresa) {
-  return res.status(500).json({
-    message: "Error al crear empresa",
-    error: errorEmpresa.message,
-    detalle: errorEmpresa
-  });
-}
+    if (errorEmpresa) {
+      return res.status(500).json({ message: "Error al crear empresa" });
+    }
 
     const slug = generarSlug(nombreEmpresa, empresa.id_empresa);
 
